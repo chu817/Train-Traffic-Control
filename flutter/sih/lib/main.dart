@@ -11,10 +11,23 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Indian Railways Login',
+      title: 'Indian Railways Control Center',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0D47A1),
+          primary: const Color(0xFF0D47A1),
+        ),
         fontFamily: 'Roboto', // A clean, modern font
+        useMaterial3: false,
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(const Color(0xFF0D47A1)),
+            padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 16)),
+            shape: MaterialStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
       ),
       debugShowCheckedModeBanner: false, // Removes the debug banner
       home: const LoginScreen(), // Set the login screen as the home page

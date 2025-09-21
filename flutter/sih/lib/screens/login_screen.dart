@@ -1,23 +1,29 @@
-// lib/screens/login_screen.dart
+
 import 'package:flutter/material.dart';
+import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({Key? key}) : super(key: key);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   String? _selectedRole;
-  final _roles = ['Station Master', 'Train Operator', 'Admin', 'Any role'];
+  final List<String> _roles = [
+    'Station Master',
+    'Train Operator',
+    'Admin',
+    'Any role',
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // The main container for the whole screen
       body: Container(
-        // Set up the background gradient
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFFE3F2FD), Color(0xFFFFFFFF)],
@@ -26,12 +32,12 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         child: Center(
-          child: SingleChildScrollView( // Allows scrolling on smaller screens
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Section 1: Header (Icon, Title, Subtitle)
+                // Header
                 const Icon(Icons.train_rounded, size: 60, color: Color(0xFF0D47A1)),
                 const SizedBox(height: 16),
                 const Text(
@@ -44,8 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 40),
-
-                // Section 2: Login Form Card
+                // Login Card
                 Card(
                   elevation: 4.0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -59,26 +64,81 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 20),
-                        // Username Field
-                        _buildTextField(
-                          label: 'Username',
-                          icon: Icons.person_outline,
+                        // Username
+                        TextField(
+                          controller: _usernameController,
+                          decoration: InputDecoration(
+                            labelText: 'Username',
+                            prefixIcon: Icon(Icons.person_outline, color: Colors.grey[600]),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        // Password Field
-                        _buildTextField(
-                          label: 'Password',
-                          icon: Icons.lock_outline,
-                          isPassword: true,
+                        // Password
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[600]),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         // Role Dropdown
-                        _buildRoleDropdown(),
+                        DropdownButtonFormField<String>(
+                          value: _selectedRole,
+                          hint: const Text('Select your role'),
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.work_outline, color: Colors.grey[600]),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                          ),
+                          items: _roles.map((role) {
+                            return DropdownMenuItem<String>(
+                              value: role,
+                              child: Text(role),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedRole = value;
+                            });
+                          },
+                        ),
                         const SizedBox(height: 24),
                         // Login Button
                         ElevatedButton(
                           onPressed: () {
-                            // TODO: Add login logic here
+                            final username = _usernameController.text.trim();
+                            final password = _passwordController.text.trim();
+                            final role = _selectedRole;
+                            if (username == 'demo' && password == 'demo' && role != null) {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Invalid credentials. Please use the demo credentials.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0D47A1),
@@ -97,8 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Section 3: Demo Credentials Card
+                // Demo Credentials Card
                 Card(
                   elevation: 2.0,
                   color: Colors.blue[50],
@@ -118,8 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Section 4: Footer Text
+                // Footer
                 Text(
                   'This system is for authorized personnel only. All activities are monitored and logged.',
                   textAlign: TextAlign.center,
@@ -135,63 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  // Helper method to build text fields to avoid code repetition
-  Widget _buildTextField({required String label, required IconData icon, bool isPassword = false}) {
-    return TextFormField(
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: Colors.grey[600]),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF0D47A1)),
-        ),
-        filled: true,
-        fillColor: Colors.grey[100],
-      ),
-    );
-  }
-  
-  // Helper method to build the role dropdown
-  Widget _buildRoleDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedRole,
-      hint: const Text('Select your role'),
-      decoration: InputDecoration(
-        prefixIcon: Icon(Icons.work_outline, color: Colors.grey[600]),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        filled: true,
-        fillColor: Colors.grey[100],
-      ),
-      items: _roles.map((String role) {
-        return DropdownMenuItem<String>(
-          value: role,
-          child: Text(role),
-        );
-      }).toList(),
-      onChanged: (newValue) {
-        setState(() {
-          _selectedRole = newValue;
-        });
-      },
     );
   }
 }
