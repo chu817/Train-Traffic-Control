@@ -1,0 +1,23 @@
+# Flask Backend Dependencies for Indian Railways Control Center
+# Core Flask framework
+Flask==2.3.3
+Flask-CORS==4.0.0
+
+# Session management (optional for file-based sessions)
+Flask-Session==0.5.0
+
+# JSON handling (built-in with Python, listed for clarity)
+# json - Built-in module
+
+# File operations (built-in with Python)
+# os - Built-in module
+
+# Date/time handling (built-in with Python) 
+# datetime - Built-in module
+
+# Future dependencies (commented out for MVP):
+# Flask-SQLAlchemy==3.0.5    # For database integration
+# Flask-JWT-Extended==4.5.2  # For JWT authentication
+# requests==2.31.0           # For external API calls  
+# python-dotenv==1.0.0       # For environment variables
+# gunicorn==21.2.0           # For production deployment
