@@ -32,7 +32,12 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
+  // Animation controller for sidebar
+  late AnimationController _sidebarController;
+  late Animation<double> _sidebarAnimation;
+  bool _isSidebarExpanded = true;
+
   // Dummy data for the train status
   final List<TrainInfo> _trains = [
     TrainInfo(number: '12002', name: 'Shatabdi Express', current: 'New Delhi', next: 'Kanpur Central', eta: '14:30', passengers: 1200),
@@ -48,6 +53,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _updateTime();
+    
+    // Initialize sidebar animation controller
+    _sidebarController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    
+    _sidebarAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _sidebarController,
+      curve: Curves.easeOutQuart,
+      reverseCurve: Curves.easeInQuart,
+    ));
+    
+    // Start expanded
+    _sidebarController.value = 1.0;
+  }
+  
+  @override
+  void dispose() {
+    _sidebarController.dispose();
+    super.dispose();
   }
   
   void _updateTime() {
@@ -84,6 +113,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
   
+  void _toggleSidebar() {
+    setState(() {
+      _isSidebarExpanded = !_isSidebarExpanded;
+      if (_isSidebarExpanded) {
+        _sidebarController.forward();
+      } else {
+        _sidebarController.reverse();
+      }
+    });
+  }
+  
   String _formatTime(DateTime time) {
     final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
     final minute = time.minute.toString().padLeft(2, '0');
@@ -106,23 +146,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           children: [
             // Section 1: Navigation Sidebar (Left)
-            _buildSidebar(),
+            // Use ClipRect to ensure contents don't overflow during animation
+            ClipRect(
+              child: AnimatedBuilder(
+                animation: _sidebarAnimation,
+                builder: (context, child) {
+                  return _buildSidebar();
+                },
+              ),
+            ),
             // Section 2: Main Content (Right)
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 24),
-                    _buildCriticalAlerts(),
-                    const SizedBox(height: 24),
-                    _buildRealTimeTrainStatus(),
-                    const SizedBox(height: 24),
-                    _buildSummarySection(),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  // Top bar with hamburger menu
+                  _buildTopAppBar(),
+                  // Scrollable content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 24),
+                          _buildCriticalAlerts(),
+                          const SizedBox(height: 24),
+                          _buildRealTimeTrainStatus(),
+                          const SizedBox(height: 24),
+                          _buildSummarySection(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -130,47 +187,139 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+  
+  // WIDGET: Top app bar with hamburger menu
+  Widget _buildTopAppBar() {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(
+              _isSidebarExpanded ? Icons.menu_open : Icons.menu,
+              color: const Color(0xFF0D47A1),
+            ),
+            onPressed: _toggleSidebar,
+            tooltip: _isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar',
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
 
   // WIDGET: The left navigation sidebar
   Widget _buildSidebar() {
+    // Calculate width based on animation value
+    final double sidebarWidth = _sidebarAnimation.value * 250;
+    
+    // Don't render anything when fully collapsed
+    if (sidebarWidth < 1) {
+      return const SizedBox(width: 0);
+    }
+    
+    // Only show labels when sidebar width is sufficient
+    final bool showLabels = sidebarWidth > 80;
+    
     return Container(
-      width: 250,
+      width: sidebarWidth,
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 24.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
+          // Header with logo
+          if (showLabels)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.train_rounded, size: 28, color: Color(0xFF0D47A1)),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: const Text(
+                          'Indian Railways', 
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Control Center', 
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                ],
+              ),
+            ),
+            
+          // Navigation items in scrollable area
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Column(
                   children: [
-                    Icon(Icons.train_rounded, size: 32, color: Color(0xFF0D47A1)),
-                    SizedBox(width: 8),
-                    Text('Indian Railways', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    _buildNavigationItem(
+                      icon: Icons.dashboard, 
+                      title: showLabels ? 'Dashboard' : '', 
+                      isSelected: true,
+                    ),
+                    _buildNavigationItem(
+                      icon: Icons.map, 
+                      title: showLabels ? 'Track Map' : '',
+                    ),
+                    _buildNavigationItem(
+                      icon: Icons.lightbulb_outline, 
+                      title: showLabels ? 'AI Recommendations' : '',
+                    ),
+                    _buildNavigationItem(
+                      icon: Icons.rule, 
+                      title: showLabels ? 'Override Controls' : '',
+                    ),
+                    _buildNavigationItem(
+                      icon: Icons.analytics_outlined, 
+                      title: showLabels ? 'What-if Analysis' : '',
+                    ),
+                    _buildNavigationItem(
+                      icon: Icons.bar_chart, 
+                      title: showLabels ? 'Performance' : '',
+                    ),
                   ],
                 ),
-                Text('Control Center', style: TextStyle(color: Colors.grey[600])),
-              ],
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-          _buildNavigationItem(icon: Icons.dashboard, title: 'Dashboard', isSelected: true),
-          _buildNavigationItem(icon: Icons.map, title: 'Track Map'),
-          _buildNavigationItem(icon: Icons.lightbulb_outline, title: 'AI Recommendations'),
-          _buildNavigationItem(icon: Icons.rule, title: 'Override Controls'),
-          _buildNavigationItem(icon: Icons.analytics_outlined, title: 'What-if Analysis'),
-          _buildNavigationItem(icon: Icons.bar_chart, title: 'Performance'),
-          const Spacer(),
-          const Divider(height: 1),
-          _buildNavigationItem(
-            icon: Icons.logout, 
-            title: 'Logout',
-            onTap: _logout,
+          
+          // Footer with logout button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 8.0, 0, 16.0),
+            child: Column(
+              children: [
+                if (showLabels) const Divider(height: 1),
+                _buildNavigationItem(
+                  icon: Icons.logout, 
+                  title: showLabels ? 'Logout' : '',
+                  onTap: _logout,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -184,27 +333,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isSelected = false,
     VoidCallback? onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListTile(
-        leading: Icon(
-          icon, 
-          color: isSelected ? const Color(0xFF0D47A1) : Colors.grey[700],
+    final bool isCollapsed = title.isEmpty;
+    
+    if (isCollapsed) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
-        title: Text(
-          title, 
-          style: TextStyle(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, 
-            color: isSelected ? const Color(0xFF0D47A1) : Colors.black87,
+        child: IconButton(
+          icon: Icon(
+            icon,
+            size: 22,
+            color: isSelected ? const Color(0xFF0D47A1) : Colors.grey[600],
           ),
+          onPressed: onTap,
+          // Use appropriate tooltip when collapsed - based on the icon
+          tooltip: icon == Icons.dashboard ? 'Dashboard' :
+                 icon == Icons.map ? 'Track Map' :
+                 icon == Icons.lightbulb_outline ? 'AI Recommendations' :
+                 icon == Icons.rule ? 'Override Controls' :
+                 icon == Icons.analytics_outlined ? 'What-if Analysis' :
+                 icon == Icons.bar_chart ? 'Performance' :
+                 icon == Icons.logout ? 'Logout' : '',
         ),
-        onTap: onTap,
-      ),
-    );
+      );
+    } else {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListTile(
+          dense: true,
+          leading: Icon(
+            icon, 
+            color: isSelected ? const Color(0xFF0D47A1) : Colors.grey[700],
+          ),
+          title: Text(
+            title, 
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, 
+              color: isSelected ? const Color(0xFF0D47A1) : Colors.black87,
+            ),
+          ),
+          onTap: onTap,
+        ),
+      );
+    }
   }
 
   // WIDGET: Header for the main content area
@@ -231,7 +409,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
         const SizedBox(width: 16),
-        Text(_currentTime, style: TextStyle(color: Colors.grey[600])),
+        Flexible(
+          child: Text(
+            _currentTime, 
+            style: TextStyle(color: Colors.grey[600]),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -251,11 +435,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.red[700]),
             const SizedBox(width: 12),
-            const Text(
-              'Signal failure at Junction A - Track 3',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            // Added Expanded to prevent overflow
+            Expanded(
+              child: const Text(
+                'Signal failure at Junction A - Track 3',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-            const Spacer(),
             TextButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -281,11 +467,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Row(
           children: [
-            const Text('Real-time Train Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-            const Spacer(),
+            const Expanded(
+              child: Text(
+                'Real-time Train Status', 
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)
+              ),
+            ),
             Icon(Icons.circle, color: Colors.green[600], size: 10),
             const SizedBox(width: 8),
-            Text('Live - Last updated: $_currentTime', style: TextStyle(color: Colors.grey[600])),
+            Flexible(
+              child: Text(
+                'Live - Last updated: $_currentTime', 
+                style: TextStyle(color: Colors.grey[600]),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
