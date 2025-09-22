@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import 'dashboard_screen.dart';
+import 'ai_recommendations_screen.dart';
+import 'login_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 
 class TrackMapScreen extends StatefulWidget {
@@ -75,10 +77,15 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
     });
   }
 
+  Timer? _timeUpdateTimer;
+
   @override
   void dispose() {
-    // Cancel the timer to prevent memory leaks.
+    // Cancel all timers to prevent memory leaks.
     _timer.cancel();
+    if (_timeUpdateTimer != null) {
+      _timeUpdateTimer!.cancel();
+    }
     _sidebarController.dispose();
     super.dispose();
   }
@@ -107,12 +114,16 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
   }
   
   void _updateTime() {
+    if (!mounted) return;
+    
     final now = DateTime.now();
     setState(() {
       _currentTime = '${now.day}/${now.month}/${now.year}, ${_formatTime(now)}';
     });
-    // Update time every minute
-    Future.delayed(const Duration(minutes: 1), _updateTime);
+    
+    // Update time every minute using a proper timer that we can cancel
+    _timeUpdateTimer?.cancel();
+    _timeUpdateTimer = Timer(const Duration(minutes: 1), _updateTime);
   }
   
   String _formatTime(DateTime time) {
@@ -293,6 +304,11 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
                     _buildNavigationItem(
                       icon: Icons.lightbulb_outline, 
                       title: showLabels ? 'AI Recommendations' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.slideRight(const AiRecommendationsScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.rule, 
@@ -321,6 +337,11 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
                 _buildNavigationItem(
                   icon: Icons.logout, 
                   title: showLabels ? 'Logout' : '',
+                  onTap: () {
+                    Navigator.of(context).pushReplacement(
+                      PageRoutes.fadeThrough(const LoginScreen()),
+                    );
+                  },
                 ),
               ],
             ),

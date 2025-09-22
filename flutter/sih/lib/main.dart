@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart'; // Import your new screen
+import 'screens/login_screen.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/track_map_screen.dart';
+import 'screens/ai_recommendations_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +34,12 @@ class MyApp extends StatelessWidget {
       ),
       debugShowCheckedModeBanner: false, // Removes the debug banner
       home: const LoginScreen(), // Set the login screen as the home page
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/dashboard': (context) => const DashboardScreen(),
+        '/track_map': (context) => const TrackMapScreen(),
+        '/ai_recommendations': (context) => const AiRecommendationsScreen(),
+      }
     );
   }
 }
