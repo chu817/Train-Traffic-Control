@@ -1,6 +1,7 @@
 // lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'track_map_screen.dart';
 
 // A simple data model for our train information
 class TrainInfo {
@@ -284,6 +285,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     _buildNavigationItem(
                       icon: Icons.map, 
                       title: showLabels ? 'Track Map' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (context) => const TrackMapScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.lightbulb_outline, 
