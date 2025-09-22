@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
+import '../utils/page_transitions_fixed.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -138,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             final role = _selectedRole;
                             if (username == 'demo' && password == 'demo' && role != null) {
                               Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                                PageRoutes.scaleFade(const DashboardScreen()),
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(

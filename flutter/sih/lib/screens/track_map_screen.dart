@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import 'dashboard_screen.dart';
+import '../utils/page_transitions_fixed.dart';
 
 class TrackMapScreen extends StatefulWidget {
   const TrackMapScreen({Key? key}) : super(key: key);
@@ -135,7 +136,7 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
   
   void _navigateToDashboard() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      PageRoutes.slideLeft(const DashboardScreen()),
     );
   }
 
