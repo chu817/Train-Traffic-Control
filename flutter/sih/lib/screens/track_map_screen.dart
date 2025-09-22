@@ -239,13 +239,22 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.train_rounded, size: 28, color: Color(0xFF0D47A1)),
+                      Hero(
+                        tag: 'app_logo',
+                        child: const Icon(Icons.train_rounded, size: 28, color: Color(0xFF0D47A1)),
+                      ),
                       const SizedBox(width: 8),
                       Flexible(
-                        child: const Text(
-                          'Indian Railways', 
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
+                        child: Hero(
+                          tag: 'app_title',
+                          child: const Material(
+                            color: Colors.transparent,
+                            child: Text(
+                              'Indian Railways', 
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ),
                       ),
                     ],

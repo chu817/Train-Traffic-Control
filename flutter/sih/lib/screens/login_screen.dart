@@ -38,11 +38,20 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Header
-                const Icon(Icons.train_rounded, size: 60, color: Color(0xFF0D47A1)),
+                Hero(
+                  tag: 'app_logo',
+                  child: const Icon(Icons.train_rounded, size: 60, color: Color(0xFF0D47A1)),
+                ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Indian Railways',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                Hero(
+                  tag: 'app_title',
+                  child: const Material(
+                    color: Colors.transparent,
+                    child: Text(
+                      'Indian Railways',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
