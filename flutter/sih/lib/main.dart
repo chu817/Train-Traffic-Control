@@ -3,6 +3,9 @@ import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/track_map_screen.dart';
 import 'screens/ai_recommendations_screen.dart';
+import 'screens/override_controls_screen.dart';
+import 'screens/what_if_analysis_screen.dart';
+import 'screens/performance_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,9 +27,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: false,
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(const Color(0xFF0D47A1)),
-            padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 16)),
-            shape: MaterialStateProperty.all(
+            backgroundColor: WidgetStateProperty.all(const Color(0xFF0D47A1)),
+            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(vertical: 16)),
+            shape: WidgetStateProperty.all(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
@@ -39,6 +42,9 @@ class MyApp extends StatelessWidget {
         '/dashboard': (context) => const DashboardScreen(),
         '/track_map': (context) => const TrackMapScreen(),
         '/ai_recommendations': (context) => const AiRecommendationsScreen(),
+        '/override_controls': (context) => const OverrideControlsScreen(),
+        '/what_if_analysis': (context) => const WhatIfAnalysisScreen(),
+        '/performance': (context) => const PerformanceScreen(),
       }
     );
   }

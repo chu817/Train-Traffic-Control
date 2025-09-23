@@ -1,10 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -35,9 +34,11 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                 // Header
                 Hero(
                   tag: 'app_logo',
@@ -107,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 16),
                         // Role Dropdown
                         DropdownButtonFormField<String>(
-                          value: _selectedRole,
+                          initialValue: _selectedRole,
                           hint: const Text('Select your role'),
                           decoration: InputDecoration(
                             prefixIcon: Icon(Icons.work_outline, color: Colors.grey[600]),
@@ -162,6 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(fontSize: 16, color: Colors.white),
                           ),
                         ),
+                        // No Google Sign-In button
                       ],
                     ),
                   ),
@@ -199,6 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 ),
               ],
+              ),
             ),
           ),
         ),

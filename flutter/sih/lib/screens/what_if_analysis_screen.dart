@@ -1,60 +1,30 @@
-// lib/screens/ai_recommendations_screen.dart
 import 'package:flutter/material.dart';
+import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import 'track_map_screen.dart';
-import 'login_screen.dart';
+import 'ai_recommendations_screen.dart';
 import 'override_controls_screen.dart';
-import 'what_if_analysis_screen.dart';
 import 'performance_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 
-class AiRecommendationsScreen extends StatefulWidget {
-  const AiRecommendationsScreen({super.key});
+class WhatIfAnalysisScreen extends StatefulWidget {
+  const WhatIfAnalysisScreen({super.key});
 
   @override
-  State<AiRecommendationsScreen> createState() => _AiRecommendationsScreenState();
+  State<WhatIfAnalysisScreen> createState() => _WhatIfAnalysisScreenState();
 }
 
-class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with SingleTickerProviderStateMixin {
+class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
   // Animation controller for sidebar
   late AnimationController _sidebarController;
   late Animation<double> _sidebarAnimation;
   bool _isSidebarExpanded = true;
   
-  // A list of recommendation data. You can replace this with data fetched from an API.
-  final List<Map<String, dynamic>> _recommendations = [
-    {
-      'title': 'Prioritize Express Service',
-      'tag': 'Priority',
-      'description': 'Hold 12951 at current station and give priority to oncoming express trains',
-      'confidence': 87,
-      'timeToImplement': '5 min to implement',
-      'expectedImpact': 'Reduces overall delay by 12 minutes',
-      'details': 'This recommendation is based on real-time traffic data and future predictions. Implementing this will reduce congestion and ensure on-time performance for express trains, minimizing cascading delays.'
-    },
-    {
-      'title': 'Optimize Junction Routing',
-      'tag': 'Routing',
-      'description': 'Redirect Train 22691 through alternate route at Kanpur Junction to avoid congestion',
-      'confidence': 72,
-      'timeToImplement': '3 min to implement',
-      'expectedImpact': 'Prevents potential 8-minute delay',
-      'details': 'This is a short-term routing solution to mitigate a temporary traffic bottleneck. The alternate route is clear and will not affect other scheduled services.'
-    },
-    {
-      'title': 'Schedule Signal Maintenance',
-      'tag': 'Maintenance',
-      'description': 'Signal B2 showing intermittent failures - schedule maintenance during low traffic window',
-      'confidence': 94,
-      'timeToImplement': '30 min to implement',
-      'expectedImpact': 'Prevents potential safety hazard',
-      'details': 'Signal B2 has reported multiple intermittent failures in the past 24 hours. A maintenance crew should be dispatched during the next low traffic period to address the issue before it causes a critical failure.'
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     
     // Initialize sidebar animation controller
     _sidebarController = AnimationController(
@@ -74,17 +44,12 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
     // Start expanded
     _sidebarController.value = 1.0;
   }
-  
+
   @override
   void dispose() {
+    _tabController.dispose();
     _sidebarController.dispose();
     super.dispose();
-  }
-  
-  void _navigateToDashboard() {
-    Navigator.of(context).pushReplacement(
-      PageRoutes.fadeThrough(const DashboardScreen()),
-    );
   }
   
   void _toggleSidebar() {
@@ -112,7 +77,6 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
         child: Row(
           children: [
             // Section 1: Navigation Sidebar (Left)
-            // Use ClipRect to ensure contents don't overflow during animation
             ClipRect(
               child: AnimatedBuilder(
                 animation: _sidebarAnimation,
@@ -121,13 +85,16 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                 },
               ),
             ),
-            // Section 2: Main Content (Right)
+            
+            // Main Content
             Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Top bar with hamburger menu
                   _buildTopAppBar(),
-                  // Scrollable content
+                  
+                  // Content area
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(32.0),
@@ -135,9 +102,49 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildHeader(),
-                          const SizedBox(height: 24),
-                          // Loop through the list of recommendations to build each card.
-                          ..._recommendations.map((rec) => _buildRecommendationCard(rec)),
+                          const SizedBox(height: 16),
+                          _buildWhatIfSimulationToolSection(),
+                          const SizedBox(height: 16),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                TabBar(
+                                  controller: _tabController,
+                                  indicatorColor: const Color(0xFF0D47A1),
+                                  labelColor: const Color(0xFF0D47A1),
+                                  unselectedLabelColor: Colors.grey[600],
+                                  tabs: const [
+                                    Tab(text: 'Create Scenario'),
+                                    Tab(text: 'Scenarios (0)'),
+                                    Tab(text: 'Results'),
+                                  ],
+                                ),
+                                Container(
+                                  height: 500,
+                                  padding: const EdgeInsets.all(16),
+                                  child: TabBarView(
+                                    controller: _tabController,
+                                    children: [
+                                      _buildCreateScenarioForm(),
+                                      const Center(child: Text('Scenarios will be shown here.')),
+                                      const Center(child: Text('Results will be shown here.')),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -251,7 +258,11 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                     _buildNavigationItem(
                       icon: Icons.dashboard, 
                       title: showLabels ? 'Dashboard' : '',
-                      onTap: _navigateToDashboard,
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const DashboardScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.map, 
@@ -265,7 +276,11 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                     _buildNavigationItem(
                       icon: Icons.lightbulb_outline, 
                       title: showLabels ? 'AI Recommendations' : '',
-                      isSelected: true,
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const AiRecommendationsScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.rule, 
@@ -279,11 +294,7 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                     _buildNavigationItem(
                       icon: Icons.analytics_outlined, 
                       title: showLabels ? 'What-if Analysis' : '',
-                      onTap: () {
-                        Navigator.of(context).pushReplacement(
-                          PageRoutes.fadeThrough(const WhatIfAnalysisScreen()),
-                        );
-                      },
+                      isSelected: true,
                     ),
                     _buildNavigationItem(
                       icon: Icons.bar_chart, 
@@ -354,195 +365,95 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
       );
     }
   }
+  
+  // --- Widget Builders ---
 
-  // WIDGET: Header for the main content area
   Widget _buildHeader() {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Icon(Icons.lightbulb_outline, size: 28, color: Color(0xFF0D47A1)),
-        const SizedBox(width: 12),
-        const Text(
-          'AI Recommendations',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.analytics_outlined, size: 28, color: Color(0xFF0D47A1)),
+                const SizedBox(width: 12),
+                const Text(
+                  'What-If Analysis',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Analyze operational scenarios before implementation',
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+          ],
         ),
-        const Spacer(),
-        Chip(
-          label: const Text(
-            '1 Critical', 
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.red[600],
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-        ),
-        const SizedBox(width: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.green[100],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'AI Active - ${_recommendations.length} recommendations',
-            style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.bold),
-          ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                '1 Critical',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}, ${_formatTime(DateTime.now())}',
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
         ),
       ],
     );
   }
+  
+  String _formatTime(DateTime time) {
+    final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+    final minute = time.minute.toString().padLeft(2, '0');
+    final second = time.second.toString().padLeft(2, '0');
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute:$second $period';
+  }
 
-  // Build a single recommendation card.
-  Widget _buildRecommendationCard(Map<String, dynamic> rec) {
+  Widget _buildWhatIfSimulationToolSection() {
     return Card(
-      elevation: 4,
+      elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      margin: const EdgeInsets.only(bottom: 24),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title and tag section.
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.warning_amber, color: Color(0xFF0D47A1), size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    rec['title'],
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                _buildTag(rec['tag']),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    // Action to dismiss the card
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation dismissed'),
-                        backgroundColor: Color(0xFF0D47A1),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                Icon(Icons.play_circle_fill, color: Color(0xFF0D47A1)),
+                SizedBox(width: 8),
+                Text(
+                  'What-If Simulation Tool',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            // Description.
-            Text(
-              rec['description'],
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            // Confidence and time to implement.
-            Row(
-              children: [
-                Text(
-                  'Confidence: ${rec['confidence']}%', 
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                const SizedBox(width: 24),
-                Text(
-                  rec['timeToImplement'], 
-                  style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold),
-                ),
-              ],
+            const SizedBox(height: 4),
+            const Text(
+              'Analyze the impact of operational decisions before implementation',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
             const SizedBox(height: 12),
-            // Progress bar for confidence.
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: rec['confidence'] / 100,
-                backgroundColor: Colors.grey[200],
-                color: _getConfidenceColor(rec['confidence']),
-                minHeight: 8,
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Expected impact.
-            Row(
-              children: [
-                Icon(
-                  Icons.trending_up, 
-                  color: Colors.green[700],
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Expected Impact: ${rec['expectedImpact']}',
-                  style: TextStyle(color: Colors.green[700], fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-            // Collapsible "View Details" section.
-            Theme(
-              data: Theme.of(context).copyWith(
-                dividerColor: Colors.transparent,
-              ),
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-                title: Text(
-                  'View Details',
-                  style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.bold),
-                ),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      rec['details'],
-                      style: const TextStyle(height: 1.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 32),
-            // Action buttons.
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation dismissed'),
-                        backgroundColor: Color(0xFF0D47A1),
-                      ),
-                    );
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.grey[700],
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  child: const Text('Dismiss'),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation implemented'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    elevation: 2,
-                  ),
-                  child: const Text('Implement'),
-                ),
-              ],
+            const Text(
+              'This tool helps simulate operational changes and predict their impact on train schedules, passenger experience, and network efficiency. Create different scenarios to compare outcomes before making critical decisions.',
+              style: TextStyle(fontSize: 14),
             ),
           ],
         ),
@@ -550,57 +461,130 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
     );
   }
 
-  // Helper widget to build the colored tag.
-  Widget _buildTag(String text) {
-    Color tagColor;
-    Color textColor;
-    
-    switch (text) {
-      case 'Priority':
-        tagColor = Colors.red[100]!;
-        textColor = Colors.red[900]!;
-        break;
-      case 'Routing':
-        tagColor = Colors.blue[100]!;
-        textColor = Colors.blue[900]!;
-        break;
-      case 'Maintenance':
-        tagColor = Colors.amber[100]!;
-        textColor = Colors.amber[900]!;
-        break;
-      default:
-        tagColor = Colors.grey[100]!;
-        textColor = Colors.grey[900]!;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: tagColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        text, 
-        style: TextStyle(
-          color: textColor, 
-          fontSize: 12, 
-          fontWeight: FontWeight.bold
+  Widget _buildCreateScenarioForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFormRow('Scenario Name', 'Enter scenario name...', isDropdown: false),
+        const SizedBox(height: 16),
+        _buildFormRow('Select Train', 'Choose a train...', isDropdown: true, items: [
+          'Train A123', 'Train B456', 'Train C789'
+        ]),
+        const SizedBox(height: 16),
+        _buildActionAndValueRow(),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              // Show a snackbar confirmation when adding to scenario
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Action added to scenario'),
+                  backgroundColor: Color(0xFF0D47A1),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Add to Scenario',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
-  
-  // Helper to get color based on confidence level
-  Color _getConfidenceColor(int confidence) {
-    if (confidence >= 90) {
-      return Colors.green[600]!;
-    } else if (confidence >= 70) {
-      return Colors.blue[600]!;
-    } else if (confidence >= 50) {
-      return Colors.amber[600]!;
-    } else {
-      return Colors.red[600]!;
-    }
+
+  Widget _buildFormRow(String labelText, String hintText, {required bool isDropdown, List<String>? items}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(labelText, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (isDropdown)
+          DropdownButtonFormField<String>(
+            decoration: InputDecoration(
+              hintText: hintText,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            items: items?.map<DropdownMenuItem<String>>((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList() ?? [],
+            onChanged: (String? newValue) {},
+          )
+        else
+          TextField(
+            decoration: InputDecoration(
+              hintText: hintText,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildActionAndValueRow() {
+    final actionTypes = ['Delay Train', 'Speed Up Train', 'Change Route', 'Signal Failure'];
+    
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Action Type', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  hintText: 'Select action...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                items: actionTypes.map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {},
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Value (minutes)', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: '0',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'track_map_screen.dart';
 import 'ai_recommendations_screen.dart';
+import 'override_controls_screen.dart';
+import 'what_if_analysis_screen.dart';
+import 'performance_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 
 // We're using Map<String, dynamic> for train data now instead of a class
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
   
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -19,6 +22,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   late AnimationController _sidebarController;
   late Animation<double> _sidebarAnimation;
   bool _isSidebarExpanded = true;
+  
+
 
   // We'll use direct Maps for train data instead of a class
   
@@ -235,7 +240,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       title: showLabels ? 'Track Map' : '',
                       onTap: () {
                         Navigator.of(context).pushReplacement(
-                          PageRoutes.slideRight(const TrackMapScreen()),
+                          PageRoutes.fadeThrough(const TrackMapScreen()),
                         );
                       },
                     ),
@@ -244,21 +249,36 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       title: showLabels ? 'AI Recommendations' : '',
                       onTap: () {
                         Navigator.of(context).pushReplacement(
-                          PageRoutes.slideRight(const AiRecommendationsScreen()),
+                          PageRoutes.fadeThrough(const AiRecommendationsScreen()),
                         );
                       },
                     ),
                     _buildNavigationItem(
                       icon: Icons.rule, 
                       title: showLabels ? 'Override Controls' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const OverrideControlsScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.analytics_outlined, 
                       title: showLabels ? 'What-if Analysis' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const WhatIfAnalysisScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.bar_chart, 
                       title: showLabels ? 'Performance' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const PerformanceScreen()),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -320,75 +340,97 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   // WIDGET: Header for the main content area
   Widget _buildHeader() {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text('Dashboard', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-        const Spacer(),
-        IconButton(
-          icon: Icon(
-            Icons.refresh,
-            color: Colors.grey[600],
-          ),
-          onPressed: () {},
-          tooltip: 'Refresh data',
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Dashboard',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Railway Traffic Control System',
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Chip(
-          label: const Text(
-            '1 Critical', 
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.red[600],
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-        ),
-        const SizedBox(width: 16),
-        Flexible(
-          child: Text(
-            DateTime.now().toString().substring(0, 16), 
-            style: TextStyle(color: Colors.grey[600]),
-            overflow: TextOverflow.ellipsis,
-          ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                '1 Critical',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}, ${_formatTime(DateTime.now())}',
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
         ),
       ],
     );
   }
+  
+  String _formatTime(DateTime time) {
+    final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+    final minute = time.minute.toString().padLeft(2, '0');
+    final second = time.second.toString().padLeft(2, '0');
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute:$second $period';
+  }
 
   // WIDGET: The red critical alert box
   Widget _buildCriticalAlerts() {
-    return Card(
-      elevation: 2,
-      color: Colors.red[50],
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.red[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red[700]),
-            const SizedBox(width: 12),
-            // Added Expanded to prevent overflow
-            Expanded(
-              child: const Text(
-                'Signal failure at Junction A - Track 3',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Alert acknowledged'),
-                    backgroundColor: Color(0xFF0D47A1),
-                  ),
-                );
-              },
-              child: const Text('Acknowledge'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red[700]),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Critical Alerts',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-      ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.red),
+              const SizedBox(width: 12),
+              Expanded(
+                child: const Text(
+                  'Signal failure at Junction A - Track 3',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Alert acknowledged'),
+                      backgroundColor: Color(0xFF0D47A1),
+                    ),
+                  );
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red[700]),
+                child: const Text('Acknowledge'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -398,82 +440,92 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Expanded(
-              child: Text(
-                'Real-time Train Status', 
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)
-              ),
+            const Text(
+              'Real-time Train Status',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            Icon(Icons.circle, color: Colors.green[600], size: 10),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Live - Last updated: ${DateTime.now().toString().substring(0, 16)}', 
-                style: TextStyle(color: Colors.grey[600]),
-                overflow: TextOverflow.ellipsis,
-              ),
+            Row(
+              children: [
+                const Icon(Icons.circle, color: Colors.green, size: 12),
+                const SizedBox(width: 6),
+                Text('Live - Last updated: ${_formatTime(DateTime.now())}', 
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              ],
             ),
           ],
         ),
         const SizedBox(height: 16),
-        Wrap( // Wrap is responsive and will move cards to the next line if space is tight
+        Wrap(
           spacing: 16.0,
           runSpacing: 16.0,
           children: [
-            _buildTrainCard({
-              'trainId': 'A123',
-              'startStation': 'New Delhi',
-              'endStation': 'Mumbai',
-              'status': 'On time',
-              'delay': 0.0,
-              'progress': 0.75
-            }),
-            _buildTrainCard({
-              'trainId': 'B456',
-              'startStation': 'Bangalore', 
-              'endStation': 'Chennai',
-              'status': 'Delayed',
-              'delay': 15.0,
-              'progress': 0.35
-            }),
-            _buildTrainCard({
-              'trainId': 'C789',
-              'startStation': 'Kolkata',
-              'endStation': 'Hyderabad',
-              'status': 'Stopped',
-              'delay': 30.0,
-              'progress': 0.2
-            }),
+            _buildTrainCard(
+              trainNumber: '12002',
+              trainName: 'Shatabdi Express',
+              currentLocation: 'New Delhi',
+              nextLocation: 'Kanpur Central',
+              eta: '14:30',
+              passengers: '1,200',
+              status: 'On Time',
+              statusColor: Colors.green,
+            ),
+            _buildTrainCard(
+              trainNumber: '12951',
+              trainName: 'Mumbai Rajdhani',
+              currentLocation: 'Vadodara',
+              nextLocation: 'Surat',
+              eta: '16:45 (+22 min)',
+              passengers: '1,800',
+              status: 'Delayed',
+              statusColor: Colors.red,
+            ),
+            _buildTrainCard(
+              trainNumber: '22691',
+              trainName: 'Rajdhani Express',
+              currentLocation: 'Gwalior',
+              nextLocation: 'Jhansi',
+              eta: '18:20',
+              passengers: '1,500',
+              status: 'On Time',
+              statusColor: Colors.green,
+            ),
+            _buildTrainCard(
+              trainNumber: '12425',
+              trainName: 'Jammu Express',
+              currentLocation: 'Ambala',
+              nextLocation: 'Jammu Tawi',
+              eta: '21:15 (+39 min)',
+              passengers: '1,100',
+              status: 'Delayed',
+              statusColor: Colors.red,
+            ),
           ],
-        )
+        ),
       ],
     );
   }
 
-  // WIDGET: A single card for one train's status
-  Widget _buildTrainCard(Map<String, dynamic> train) {
-    final String trainId = train['trainId'] ?? 'Unknown';
-    final String startStation = train['startStation'] ?? 'Unknown';
-    final String endStation = train['endStation'] ?? 'Unknown';
-    final String status = train['status'] ?? 'Unknown';
-    final double delay = train['delay']?.toDouble() ?? 0.0;
-    final double progress = train['progress']?.toDouble() ?? 0.0;
-
-    Color statusColor = Colors.grey;
-    if (status == 'On time') {
-      statusColor = Colors.green;
-    } else if (status == 'Delayed') {
-      statusColor = Colors.orange;
-    } else if (status == 'Stopped') {
-      statusColor = Colors.red;
-    }
-
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+  // WIDGET: A single card for one train's status with hover effect
+  Widget _buildTrainCard({
+    required String trainNumber,
+    required String trainName,
+    required String currentLocation,
+    required String nextLocation,
+    required String eta,
+    required String passengers,
+    required String status,
+    required Color statusColor,
+  }) {
+    return HoverCard(
+      child: Container(
+        width: 320,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -481,49 +533,164 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Train $trainId',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  trainNumber,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     status,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: statusColor, fontSize: 12),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text('$startStation → $endStation'),
-            const SizedBox(height: 8),
-            if (delay > 0)
-              Text(
-                'Delay: ${delay.toStringAsFixed(1)} min',
-                style: TextStyle(
-                  color: delay > 15 ? Colors.red : Colors.orange,
+            const SizedBox(height: 4),
+            Text(trainName, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            const SizedBox(height: 12),
+            _buildInfoRow(icon: Icons.location_on, label: 'Current:', value: currentLocation),
+            _buildInfoRow(icon: Icons.location_on, label: 'Next:', value: nextLocation),
+            _buildInfoRow(icon: Icons.access_time, label: 'ETA:', value: eta),
+            _buildInfoRow(icon: Icons.person, label: 'Passengers:', value: passengers),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Details for Train $trainNumber'),
+                        backgroundColor: const Color(0xFF0D47A1),
+                      ),
+                    );
+                  }, 
+                  child: const Text('Details')
                 ),
+                ElevatedButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Tracking Train $trainNumber'),
+                        backgroundColor: Colors.blue,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Track'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInfoRow({required IconData icon, required String label, required String value}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          const SizedBox(width: 8),
+          Text.rich(
+            TextSpan(
+              text: label,
+              style: const TextStyle(color: Colors.grey),
+              children: [
+                TextSpan(
+                  text: ' $value',
+                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSummarySection() {
+    return Wrap(
+      spacing: 24.0,
+      runSpacing: 24.0,
+      children: [
+        _buildSummaryCard(
+          icon: Icons.access_time,
+          iconColor: Colors.green,
+          title: 'On Time',
+          value: '2',
+        ),
+        _buildSummaryCard(
+          icon: Icons.warning_rounded,
+          iconColor: Colors.red,
+          title: 'Delayed',
+          value: '2',
+        ),
+        _buildSummaryCard(
+          icon: Icons.person,
+          iconColor: Colors.blue,
+          title: 'Total Passengers',
+          value: '5,600',
+        ),
+        _buildSummaryCard(
+          icon: Icons.insights,
+          iconColor: Colors.purple,
+          title: 'Avg Delay',
+          value: '15 min',
+        ),
+      ],
+    );
+  }
+  
+  // WIDGET: A single card for the summary section with hover effect
+  Widget _buildSummaryCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String value,
+  }) {
+    return HoverCard(
+      child: Container(
+        width: 250,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation<Color>(
-                progress < 0.3
-                    ? Colors.red
-                    : progress < 0.7
-                        ? Colors.orange
-                        : Colors.green,
-              ),
+              child: Icon(icon, color: iconColor),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                ),
+              ],
             ),
           ],
         ),
@@ -649,43 +816,46 @@ class _HoverListTileState extends State<_HoverListTile> {
   }
 }
 
-
-
-  // WIDGET: The bottom section with summary statistics
-  Widget _buildSummarySection() {
-    return Wrap(
-      spacing: 16.0,
-      runSpacing: 16.0,
-      children: [
-        _buildSummaryCard(title: 'On Time', value: '2', icon: Icons.check_circle_outline, color: Colors.green),
-        _buildSummaryCard(title: 'Delayed', value: '2', icon: Icons.warning_amber_rounded, color: Colors.red),
-        _buildSummaryCard(title: 'Total Passengers', value: '5,600', icon: Icons.group, color: const Color(0xFF0D47A1)),
-        _buildSummaryCard(title: 'Avg Delay', value: '16 min', icon: Icons.timer_outlined, color: Colors.orange),
-      ],
-    );
-  }
+// Hover Card class for card hover effects
+class HoverCard extends StatefulWidget {
+  final Widget child;
   
-  // WIDGET: A single card for the summary section
-  Widget _buildSummaryCard({required String title, required String value, required IconData icon, required Color color}) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(color: Colors.grey[600])),
-                Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              ],
+  const HoverCard({
+    required this.child,
+    super.key,
+  });
+  
+  @override
+  State<HoverCard> createState() => _HoverCardState();
+}
+
+class _HoverCardState extends State<HoverCard> {
+  bool _isHovering = false;
+  
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        transform: _isHovering 
+            ? (Matrix4.identity()..translate(0.0, -5.0))
+            : Matrix4.identity(),
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(_isHovering ? 0.3 : 0.1),
+              spreadRadius: _isHovering ? 3 : 1,
+              blurRadius: _isHovering ? 10 : 5,
+              offset: Offset(0, _isHovering ? 5 : 2),
             ),
-            const Spacer(),
-            Icon(icon, size: 32, color: color),
           ],
+          borderRadius: BorderRadius.circular(12),
         ),
+        child: widget.child,
       ),
     );
   }
+}

@@ -5,10 +5,13 @@ import 'dart:math';
 import 'dashboard_screen.dart';
 import 'ai_recommendations_screen.dart';
 import 'login_screen.dart';
+import 'override_controls_screen.dart';
+import 'what_if_analysis_screen.dart';
+import 'performance_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 
 class TrackMapScreen extends StatefulWidget {
-  const TrackMapScreen({Key? key}) : super(key: key);
+  const TrackMapScreen({super.key});
 
   @override
   _TrackMapScreenState createState() => _TrackMapScreenState();
@@ -44,6 +47,7 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
   bool _isSidebarExpanded = true;
 
   late Timer _timer;
+  Timer? _timeUpdateTimer;
   final Random _random = Random();
   String _currentTime = '';
 
@@ -77,15 +81,11 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
     });
   }
 
-  Timer? _timeUpdateTimer;
-
   @override
   void dispose() {
     // Cancel all timers to prevent memory leaks.
     _timer.cancel();
-    if (_timeUpdateTimer != null) {
-      _timeUpdateTimer!.cancel();
-    }
+    _timeUpdateTimer?.cancel();
     _sidebarController.dispose();
     super.dispose();
   }
@@ -147,7 +147,7 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
   
   void _navigateToDashboard() {
     Navigator.of(context).pushReplacement(
-      PageRoutes.slideLeft(const DashboardScreen()),
+      PageRoutes.fadeThrough(const DashboardScreen()),
     );
   }
 
@@ -306,21 +306,36 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
                       title: showLabels ? 'AI Recommendations' : '',
                       onTap: () {
                         Navigator.of(context).pushReplacement(
-                          PageRoutes.slideRight(const AiRecommendationsScreen()),
+                          PageRoutes.fadeThrough(const AiRecommendationsScreen()),
                         );
                       },
                     ),
                     _buildNavigationItem(
                       icon: Icons.rule, 
                       title: showLabels ? 'Override Controls' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const OverrideControlsScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.analytics_outlined, 
                       title: showLabels ? 'What-if Analysis' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const WhatIfAnalysisScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.bar_chart, 
                       title: showLabels ? 'Performance' : '',
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const PerformanceScreen()),
+                        );
+                      },
                     ),
                   ],
                 ),

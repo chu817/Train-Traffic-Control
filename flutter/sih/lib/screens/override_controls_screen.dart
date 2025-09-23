@@ -1,60 +1,37 @@
-// lib/screens/ai_recommendations_screen.dart
+// lib/screens/override_controls_screen.dart
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'track_map_screen.dart';
+import 'ai_recommendations_screen.dart';
 import 'login_screen.dart';
-import 'override_controls_screen.dart';
 import 'what_if_analysis_screen.dart';
 import 'performance_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 
-class AiRecommendationsScreen extends StatefulWidget {
-  const AiRecommendationsScreen({super.key});
+class OverrideControlsScreen extends StatefulWidget {
+  const OverrideControlsScreen({super.key});
 
   @override
-  State<AiRecommendationsScreen> createState() => _AiRecommendationsScreenState();
+  State<OverrideControlsScreen> createState() => _OverrideControlsScreenState();
 }
 
-class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with SingleTickerProviderStateMixin {
+class _OverrideControlsScreenState extends State<OverrideControlsScreen> with SingleTickerProviderStateMixin {
   // Animation controller for sidebar
   late AnimationController _sidebarController;
   late Animation<double> _sidebarAnimation;
   bool _isSidebarExpanded = true;
-  
-  // A list of recommendation data. You can replace this with data fetched from an API.
-  final List<Map<String, dynamic>> _recommendations = [
-    {
-      'title': 'Prioritize Express Service',
-      'tag': 'Priority',
-      'description': 'Hold 12951 at current station and give priority to oncoming express trains',
-      'confidence': 87,
-      'timeToImplement': '5 min to implement',
-      'expectedImpact': 'Reduces overall delay by 12 minutes',
-      'details': 'This recommendation is based on real-time traffic data and future predictions. Implementing this will reduce congestion and ensure on-time performance for express trains, minimizing cascading delays.'
-    },
-    {
-      'title': 'Optimize Junction Routing',
-      'tag': 'Routing',
-      'description': 'Redirect Train 22691 through alternate route at Kanpur Junction to avoid congestion',
-      'confidence': 72,
-      'timeToImplement': '3 min to implement',
-      'expectedImpact': 'Prevents potential 8-minute delay',
-      'details': 'This is a short-term routing solution to mitigate a temporary traffic bottleneck. The alternate route is clear and will not affect other scheduled services.'
-    },
-    {
-      'title': 'Schedule Signal Maintenance',
-      'tag': 'Maintenance',
-      'description': 'Signal B2 showing intermittent failures - schedule maintenance during low traffic window',
-      'confidence': 94,
-      'timeToImplement': '30 min to implement',
-      'expectedImpact': 'Prevents potential safety hazard',
-      'details': 'Signal B2 has reported multiple intermittent failures in the past 24 hours. A maintenance crew should be dispatched during the next low traffic period to address the issue before it causes a critical failure.'
-    },
-  ];
+
+  // A list of sample train numbers for the dropdown.
+  final List<String> _trains = ['Choose a train...', 'Train 12951', 'Train 22691', 'Train 2002'];
+  String? _selectedTrain;
+  final TextEditingController _reasonController = TextEditingController();
+  String _currentTime = '';
 
   @override
   void initState() {
     super.initState();
+    _selectedTrain = _trains.first;
+    _updateTime();
     
     // Initialize sidebar animation controller
     _sidebarController = AnimationController(
@@ -77,14 +54,25 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
   
   @override
   void dispose() {
+    _reasonController.dispose();
     _sidebarController.dispose();
     super.dispose();
   }
   
-  void _navigateToDashboard() {
-    Navigator.of(context).pushReplacement(
-      PageRoutes.fadeThrough(const DashboardScreen()),
-    );
+  void _updateTime() {
+    if (!mounted) return;
+    
+    final now = DateTime.now();
+    setState(() {
+      _currentTime = '${now.day}/${now.month}/${now.year}, ${_formatTime(now)}';
+    });
+  }
+  
+  String _formatTime(DateTime time) {
+    final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
   }
   
   void _toggleSidebar() {
@@ -112,7 +100,6 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
         child: Row(
           children: [
             // Section 1: Navigation Sidebar (Left)
-            // Use ClipRect to ensure contents don't overflow during animation
             ClipRect(
               child: AnimatedBuilder(
                 animation: _sidebarAnimation,
@@ -136,8 +123,26 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                         children: [
                           _buildHeader(),
                           const SizedBox(height: 24),
-                          // Loop through the list of recommendations to build each card.
-                          ..._recommendations.map((rec) => _buildRecommendationCard(rec)),
+                          // Main content row with two panels.
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Manual Override Controls panel.
+                              Expanded(
+                                flex: 2,
+                                child: _buildManualOverridePanel(),
+                              ),
+                              const SizedBox(width: 24),
+                              // Recent Override Actions panel.
+                              Expanded(
+                                flex: 1,
+                                child: _buildRecentActionsPanel(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          // Safety Notice panel.
+                          _buildSafetyNoticePanel(),
                         ],
                       ),
                     ),
@@ -251,7 +256,11 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                     _buildNavigationItem(
                       icon: Icons.dashboard, 
                       title: showLabels ? 'Dashboard' : '',
-                      onTap: _navigateToDashboard,
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const DashboardScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.map, 
@@ -265,16 +274,16 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                     _buildNavigationItem(
                       icon: Icons.lightbulb_outline, 
                       title: showLabels ? 'AI Recommendations' : '',
-                      isSelected: true,
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          PageRoutes.fadeThrough(const AiRecommendationsScreen()),
+                        );
+                      },
                     ),
                     _buildNavigationItem(
                       icon: Icons.rule, 
                       title: showLabels ? 'Override Controls' : '',
-                      onTap: () {
-                        Navigator.of(context).pushReplacement(
-                          PageRoutes.fadeThrough(const OverrideControlsScreen()),
-                        );
-                      },
+                      isSelected: true,
                     ),
                     _buildNavigationItem(
                       icon: Icons.analytics_outlined, 
@@ -359,10 +368,10 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
   Widget _buildHeader() {
     return Row(
       children: [
-        const Icon(Icons.lightbulb_outline, size: 28, color: Color(0xFF0D47A1)),
+        const Icon(Icons.rule, size: 28, color: Color(0xFF0D47A1)),
         const SizedBox(width: 12),
         const Text(
-          'AI Recommendations',
+          'Override Controls',
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const Spacer(),
@@ -375,173 +384,93 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
           padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
         const SizedBox(width: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.green[100],
-            borderRadius: BorderRadius.circular(12),
-          ),
+        Flexible(
           child: Text(
-            'AI Active - ${_recommendations.length} recommendations',
-            style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.bold),
+            _currentTime, 
+            style: TextStyle(color: Colors.grey[600]),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
     );
   }
 
-  // Build a single recommendation card.
-  Widget _buildRecommendationCard(Map<String, dynamic> rec) {
+  // Build the "Manual Override Controls" panel.
+  Widget _buildManualOverridePanel() {
     return Card(
-      elevation: 4,
+      elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      margin: const EdgeInsets.only(bottom: 24),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title and tag section.
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.warning_amber, color: Color(0xFF0D47A1), size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    rec['title'],
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                _buildTag(rec['tag']),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    // Action to dismiss the card
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation dismissed'),
-                        backgroundColor: Color(0xFF0D47A1),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                Icon(Icons.warning_amber, color: Colors.amber),
+                SizedBox(width: 8),
+                Text(
+                  'Override Actions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            // Description.
-            Text(
-              rec['description'],
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            // Confidence and time to implement.
-            Row(
-              children: [
-                Text(
-                  'Confidence: ${rec['confidence']}%', 
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                const SizedBox(width: 24),
-                Text(
-                  rec['timeToImplement'], 
-                  style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Progress bar for confidence.
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: rec['confidence'] / 100,
-                backgroundColor: Colors.grey[200],
-                color: _getConfidenceColor(rec['confidence']),
-                minHeight: 8,
+            const Text('Select Train'),
+            const SizedBox(height: 8),
+            // Train selection dropdown.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
               ),
-            ),
-            const SizedBox(height: 20),
-            // Expected impact.
-            Row(
-              children: [
-                Icon(
-                  Icons.trending_up, 
-                  color: Colors.green[700],
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Expected Impact: ${rec['expectedImpact']}',
-                  style: TextStyle(color: Colors.green[700], fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-            // Collapsible "View Details" section.
-            Theme(
-              data: Theme.of(context).copyWith(
-                dividerColor: Colors.transparent,
-              ),
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-                title: Text(
-                  'View Details',
-                  style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.bold),
-                ),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      rec['details'],
-                      style: const TextStyle(height: 1.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 32),
-            // Action buttons.
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation dismissed'),
-                        backgroundColor: Color(0xFF0D47A1),
-                      ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedTrain,
+                  isExpanded: true,
+                  items: _trains.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
                     );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedTrain = newValue;
+                    });
                   },
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.grey[700],
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  child: const Text('Dismiss'),
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation implemented'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    elevation: 2,
-                  ),
-                  child: const Text('Implement'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Reason for Override'),
+            const SizedBox(height: 8),
+            // Reason for override text field.
+            TextField(
+              controller: _reasonController,
+              decoration: InputDecoration(
+                hintText: 'Enter reason for manual intervention...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                fillColor: Colors.white,
+                filled: true,
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 24),
+            // Override action buttons.
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: [
+                _buildActionButton(Icons.arrow_forward, 'Change Priority'),
+                _buildActionButton(Icons.pause, 'Hold Train'),
+                _buildActionButton(Icons.refresh, 'Change Route'),
+                _buildActionButton(Icons.trending_up, 'Adjust Speed'),
               ],
             ),
           ],
@@ -550,57 +479,107 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
     );
   }
 
-  // Helper widget to build the colored tag.
-  Widget _buildTag(String text) {
-    Color tagColor;
-    Color textColor;
-    
-    switch (text) {
-      case 'Priority':
-        tagColor = Colors.red[100]!;
-        textColor = Colors.red[900]!;
-        break;
-      case 'Routing':
-        tagColor = Colors.blue[100]!;
-        textColor = Colors.blue[900]!;
-        break;
-      case 'Maintenance':
-        tagColor = Colors.amber[100]!;
-        textColor = Colors.amber[900]!;
-        break;
-      default:
-        tagColor = Colors.grey[100]!;
-        textColor = Colors.grey[900]!;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: tagColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        text, 
-        style: TextStyle(
-          color: textColor, 
-          fontSize: 12, 
-          fontWeight: FontWeight.bold
+  // Helper widget to build an action button.
+  Widget _buildActionButton(IconData icon, String label) {
+    return ElevatedButton.icon(
+      onPressed: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$label action requested'),
+            backgroundColor: const Color(0xFF0D47A1),
+          ),
+        );
+      },
+      icon: Icon(icon),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFF0D47A1),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
   }
-  
-  // Helper to get color based on confidence level
-  Color _getConfidenceColor(int confidence) {
-    if (confidence >= 90) {
-      return Colors.green[600]!;
-    } else if (confidence >= 70) {
-      return Colors.blue[600]!;
-    } else if (confidence >= 50) {
-      return Colors.amber[600]!;
-    } else {
-      return Colors.red[600]!;
-    }
+
+  // Build the "Recent Override Actions" panel.
+  Widget _buildRecentActionsPanel() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Recent Override Actions',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+            SizedBox(
+              height: 400,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.history, size: 64, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No recent override actions',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Recent override actions will appear here',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Build the "Safety Notice" panel.
+  Widget _buildSafetyNoticePanel() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.yellow[100],
+        border: Border.all(color: Colors.amber),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber, color: Colors.amber[700], size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Safety Notice',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Manual overrides should only be used in emergency situations. All actions are logged and will be reviewed. Ensure proper authorization before executing any override.',
+                  style: TextStyle(color: Colors.grey[800]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
