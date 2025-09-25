@@ -1,0 +1,1 @@
+flask flask-cors flask-socketio ortools pandas numpy
