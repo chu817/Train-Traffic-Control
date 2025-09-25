@@ -129,178 +129,178 @@ class AppSidebar extends StatelessWidget {
                       },
                     ),
                   ],
-+                ),
-+              ),
-+            ),
-+          ),
-+          Padding(
-+            padding: const EdgeInsets.fromLTRB(0, 8.0, 0, 16.0),
-+            child: Column(
-+              children: [
-+                if (showLabels) const Divider(height: 1),
-+                _buildNavigationItem(
-+                  context: context,
-+                  icon: Icons.logout,
-+                  title: showLabels ? 'Logout' : '',
-+                  onTap: () {
-+                    Navigator.of(context).pushReplacement(PageRoutes.fadeThrough(const LoginScreen()));
-+                  },
-+                ),
-+              ],
-+            ),
-+          ),
-+        ],
-+      ),
-+    );
-+  }
-+
-+  Widget _buildNavigationItem({
-+    required BuildContext context,
-+    required IconData icon,
-+    required String title,
-+    bool isSelected = false,
-+    VoidCallback? onTap,
-+  }) {
-+    final bool isCollapsed = title.isEmpty;
-+
-+    if (isCollapsed) {
-+      return _HoverButton(
-+        isSelected: isSelected,
-+        icon: icon,
-+        onTap: onTap,
-+        tooltipText: icon == Icons.dashboard ? 'Dashboard' :
-+                     icon == Icons.map ? 'Track Map' :
-+                     icon == Icons.lightbulb_outline ? 'AI Recommendations' :
-+                     icon == Icons.rule ? 'Override Controls' :
-+                     icon == Icons.analytics_outlined ? 'What-if Analysis' :
-+                     icon == Icons.bar_chart ? 'Performance' :
-+                     icon == Icons.logout ? 'Logout' : '',
-+      );
-+    } else {
-+      return _HoverListTile(
-+        isSelected: isSelected,
-+        icon: icon,
-+        title: title,
-+        onTap: onTap,
-+      );
-+    }
-+  }
-+}
-+
-+class _HoverButton extends StatefulWidget {
-+  final bool isSelected;
-+  final IconData icon;
-+  final VoidCallback? onTap;
-+  final String tooltipText;
-+
-+  const _HoverButton({
-+    required this.isSelected,
-+    required this.icon,
-+    this.onTap,
-+    required this.tooltipText,
-+  });
-+
-+  @override
-+  _HoverButtonState createState() => _HoverButtonState();
-+}
-+
-+class _HoverButtonState extends State<_HoverButton> {
-+  bool isHovering = false;
-+
-+  @override
-+  Widget build(BuildContext context) {
-+    return MouseRegion(
-+      onEnter: (_) => setState(() => isHovering = true),
-+      onExit: (_) => setState(() => isHovering = false),
-+      child: Container(
-+        margin: const EdgeInsets.symmetric(vertical: 4),
-+        decoration: BoxDecoration(
-+          color: widget.isSelected
-+              ? const Color(0xFFE3F2FD)
-+              : isHovering
-+                  ? const Color(0xFFF5F5F5)
-+                  : Colors.transparent,
-+          borderRadius: BorderRadius.circular(8),
-+        ),
-+        child: IconButton(
-+          icon: Icon(
-+            widget.icon,
-+            size: 22,
-+            color: widget.isSelected
-+                ? const Color(0xFF0D47A1)
-+                : isHovering
-+                    ? const Color(0xFF42A5F5)
-+                    : Colors.grey[600],
-+          ),
-+          onPressed: widget.onTap,
-+          tooltip: widget.tooltipText,
-+        ),
-+      ),
-+    );
-+  }
-+}
-+
-+class _HoverListTile extends StatefulWidget {
-+  final bool isSelected;
-+  final IconData icon;
-+  final String title;
-+  final VoidCallback? onTap;
-+
-+  const _HoverListTile({
-+    required this.isSelected,
-+    required this.icon,
-+    required this.title,
-+    this.onTap,
-+  });
-+
-+  @override
-+  _HoverListTileState createState() => _HoverListTileState();
-+}
-+
-+class _HoverListTileState extends State<_HoverListTile> {
-+  bool isHovering = false;
-+
-+  @override
-+  Widget build(BuildContext context) {
-+    return MouseRegion(
-+      onEnter: (_) => setState(() => isHovering = true),
-+      onExit: (_) => setState(() => isHovering = false),
-+      child: Container(
-+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-+        decoration: BoxDecoration(
-+          color: widget.isSelected
-+              ? const Color(0xFFE3F2FD)
-+              : isHovering
-+                  ? const Color(0xFFF5F5F5)
-+                  : Colors.transparent,
-+          borderRadius: BorderRadius.circular(8),
-+        ),
-+        child: ListTile(
-+          dense: true,
-+          leading: Icon(
-+            widget.icon,
-+            color: widget.isSelected
-+                ? const Color(0xFF0D47A1)
-+                : isHovering
-+                    ? const Color(0xFF42A5F5)
-+                    : Colors.grey[700],
-+          ),
-+          title: Text(
-+            widget.title,
-+            style: TextStyle(
-+              fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
-+              color: widget.isSelected
-+                  ? const Color(0xFF0D47A1)
-+                  : isHovering
-+                      ? const Color(0xFF42A5F5)
-+                      : Colors.black87,
-+            ),
-+          ),
-+          onTap: widget.onTap,
-+        ),
-+      ),
-+    );
-+  }
-+}
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 8.0, 0, 16.0),
+            child: Column(
+              children: [
+                if (showLabels) const Divider(height: 1),
+                _buildNavigationItem(
+                  context: context,
+                  icon: Icons.logout,
+                  title: showLabels ? 'Logout' : '',
+                  onTap: () {
+                    Navigator.of(context).pushReplacement(PageRoutes.fadeThrough(const LoginScreen()));
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavigationItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    bool isSelected = false,
+    VoidCallback? onTap,
+  }) {
+    final bool isCollapsed = title.isEmpty;
+
+    if (isCollapsed) {
+      return _HoverButton(
+        isSelected: isSelected,
+        icon: icon,
+        onTap: onTap,
+        tooltipText: icon == Icons.dashboard ? 'Dashboard' :
+                     icon == Icons.map ? 'Track Map' :
+                     icon == Icons.lightbulb_outline ? 'AI Recommendations' :
+                     icon == Icons.rule ? 'Override Controls' :
+                     icon == Icons.analytics_outlined ? 'What-if Analysis' :
+                     icon == Icons.bar_chart ? 'Performance' :
+                     icon == Icons.logout ? 'Logout' : '',
+      );
+    } else {
+      return _HoverListTile(
+        isSelected: isSelected,
+        icon: icon,
+        title: title,
+        onTap: onTap,
+      );
+    }
+  }
+}
+
+class _HoverButton extends StatefulWidget {
+  final bool isSelected;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final String tooltipText;
+
+  const _HoverButton({
+    required this.isSelected,
+    required this.icon,
+    this.onTap,
+    required this.tooltipText,
+  });
+
+  @override
+  _HoverButtonState createState() => _HoverButtonState();
+}
+
+class _HoverButtonState extends State<_HoverButton> {
+  bool isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => isHovering = true),
+      onExit: (_) => setState(() => isHovering = false),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: widget.isSelected
+              ? const Color(0xFFE3F2FD)
+              : isHovering
+                  ? const Color(0xFFF5F5F5)
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: IconButton(
+          icon: Icon(
+            widget.icon,
+            size: 22,
+            color: widget.isSelected
+                ? const Color(0xFF0D47A1)
+                : isHovering
+                    ? const Color(0xFF42A5F5)
+                    : Colors.grey[600],
+          ),
+          onPressed: widget.onTap,
+          tooltip: widget.tooltipText,
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverListTile extends StatefulWidget {
+  final bool isSelected;
+  final IconData icon;
+  final String title;
+  final VoidCallback? onTap;
+
+  const _HoverListTile({
+    required this.isSelected,
+    required this.icon,
+    required this.title,
+    this.onTap,
+  });
+
+  @override
+  _HoverListTileState createState() => _HoverListTileState();
+}
+
+class _HoverListTileState extends State<_HoverListTile> {
+  bool isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => isHovering = true),
+      onExit: (_) => setState(() => isHovering = false),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: widget.isSelected
+              ? const Color(0xFFE3F2FD)
+              : isHovering
+                  ? const Color(0xFFF5F5F5)
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListTile(
+          dense: true,
+          leading: Icon(
+            widget.icon,
+            color: widget.isSelected
+                ? const Color(0xFF0D47A1)
+                : isHovering
+                    ? const Color(0xFF42A5F5)
+                    : Colors.grey[700],
+          ),
+          title: Text(
+            widget.title,
+            style: TextStyle(
+              fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
+              color: widget.isSelected
+                  ? const Color(0xFF0D47A1)
+                  : isHovering
+                      ? const Color(0xFF42A5F5)
+                      : Colors.black87,
+            ),
+          ),
+          onTap: widget.onTap,
+        ),
+      ),
+    );
+  }
+}
 
 
