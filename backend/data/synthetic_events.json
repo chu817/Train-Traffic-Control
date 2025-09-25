@@ -1,0 +1,25 @@
+{
+    "events": [
+        {
+            "event_id": 1,
+            "train_id": "12345",
+            "event_type": "delay",
+            "description": "Train delayed due to maintenance",
+            "timestamp": "2024-06-01T10:00:00Z"
+        },
+        {
+            "event_id": 2,
+            "train_id": "67890",
+            "event_type": "cancellation",
+            "description": "Train cancelled due to weather conditions",
+            "timestamp": "2024-06-01T11:00:00Z"
+        },
+        {
+            "event_id": 3,
+            "train_id": "54321",
+            "event_type": "reschedule",
+            "description": "Train rescheduled to depart at 12:30 PM",
+            "timestamp": "2024-06-01T09:30:00Z"
+        }
+    ]
+}

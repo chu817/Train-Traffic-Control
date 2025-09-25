@@ -1,250 +1,227 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
+from datetime import datetime
 import json
-from datetime import datetime, timedelta
+import os
 
-# Import our custom modules
+# --- Import scheduler/optimizer modules as before ---
 from algorithms.scheduler import BasicScheduler
 from algorithms.optimizer import TrainScheduleOptimizer
 from algorithms.kpi_calculator import KPICalculator
 from algorithms.event_handler import DisruptionHandler
 
 app = Flask(__name__)
+app.secret_key = "changethissecret"
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Global variables for data storage
-trains_data = []
-stations_data = []
-tracks_data = []
-current_schedule = {}
-baseline_schedule = {}
+# --- Data file paths ---
+TRAINFILE = "data/synthetic_trains.json"
+STATIONFILE = "data/synthetic_stations.json"
+EVENTFILE = "data/synthetic_events.json"
+
+def load_json(filepath):
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            return json.load(f)
+    return []
+
+def format_response(success=True, message="", data=None, code=200):
+    response = {
+        "success": success,
+        "message": message,
+        "timestamp": datetime.now().isoformat(),
+    }
+    if data is not None:
+        response["data"] = data
+    return jsonify(response), code
+
+# --- Load synthetic data ---
+def load_trains():
+    return load_json(TRAINFILE)
+
+def load_stations_tracks():
+    stations_tracks = load_json(STATIONFILE)
+    return stations_tracks.get('stations', []), stations_tracks.get('tracks', [])
+
+def load_events():
+    return load_json(EVENTFILE)
+
 kpi_calculator = KPICalculator()
+current_schedule = None
+baseline_schedule = None
 disruption_handler = None
 
-def load_synthetic_data():
-    global trains_data, stations_data, tracks_data
-    
-    # Load trains
-    with open('data/synthetic_trains.json', 'r') as f:
-        trains_data = json.load(f)
-    
-    # Load stations and tracks
-    with open('data/synthetic_stations.json', 'r') as f:
-        infrastructure = json.load(f)
-        stations_data = infrastructure['stations']
-        tracks_data = infrastructure['tracks']
-    
-    print(f"Loaded {len(trains_data)} trains, {len(stations_data)} stations, {len(tracks_data)} tracks")
+def map_schedule_to_traininfo(schedule):
+    traininfo = []
+    for train_id, entry in schedule.items():
+        traininfo.append({
+            "number": train_id,
+            "name": entry.get("name", f"Train {train_id}"),
+            "currentStation": entry.get("current_station", "N/A"),
+            "nextStation": entry.get("next_station", "N/A"),
+            "status": "DELAYED" if entry.get("delay_minutes", 0) > 0 else "ON_TIME",
+            "scheduledArrival": entry.get("scheduled_arrival"),
+            "actualArrival": entry.get("optimized_arrival") or entry.get("scheduled_arrival"),
+            "passengerCount": entry.get("passenger_count", 1000),
+            "isDelayed": bool(entry.get("delay_minutes", 0) > 0),
+            "delayMinutes": int(entry.get("delay_minutes", 0)),
+        })
+    return traininfo
 
-@app.route('/api/trains', methods=['GET'])
+@app.route("/health", methods=["GET"])
+def health():
+    return format_response(True, "Server is running", {"version": "1.0.0", "status": "healthy", 
+                                                      "uptime": datetime.now().isoformat()})
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    return format_response(True, "Login stubbed, implement later", {"session": "dummy"})
+
+@app.route("/api/logout", methods=["POST", "GET"])
+def logout():
+    return format_response(True, "Logout stubbed, implement later", {})
+
+@app.route("/api/session", methods=["GET"])
+def check_session():
+    return format_response(True, "Session exists (stubbed)", {"user": "testuser", "role": "Admin", "login_time": datetime.now().isoformat()})
+
+@app.route("/api/trains", methods=["GET"])
 def get_trains():
-    return jsonify(trains_data)
+    global current_schedule
+    if current_schedule:
+        trains = map_schedule_to_traininfo(current_schedule)
+    else:
+        trains = load_trains()
+    return format_response(True, "Trains data retrieved", trains)
 
-@app.route('/api/stations', methods=['GET'])
-def get_stations():
-    return jsonify(stations_data)
+@app.route("/api/trains/<train_id>", methods=["GET"])
+def get_train_detail(train_id):
+    global current_schedule
+    if current_schedule:
+        trains = map_schedule_to_traininfo(current_schedule)
+    else:
+        trains = load_trains()
+    train = next((t for t in trains if t["train_id"] == train_id), None)
+    if train:
+        return format_response(True, f"Train {train_id} details", train)
+    return format_response(False, f"Train {train_id} not found", code=404)
 
-@app.route('/api/tracks', methods=['GET'])
-def get_tracks():
-    return jsonify(tracks_data)
+@app.route("/api/alerts", methods=["GET"])
+def get_alerts():
+    alerts = load_events()
+    return format_response(True, "Alerts retrieved", alerts)
 
-@app.route('/api/schedule/generate', methods=['POST'])
+@app.route("/api/alerts/<alert_id>/acknowledge", methods=["POST"])
+def acknowledge_alert(alert_id):
+    # Should update alert status in state/db
+    return format_response(True, f"Alert {alert_id} acknowledged", {"alertId": alert_id, "acknowledgedAt": datetime.now().isoformat()})
+
+@app.route("/api/dashboardstats", methods=["GET"])
+def dashboard_stats():
+    # Compute stats from train schedule/KPI module
+    stats = {
+        "totalTrains": 0,
+        "activeTrains": 0,
+        "delayedTrains": 0,
+        "onTimeTrains": 0,
+        "criticalAlerts": 0,
+        "averageDelay": 0,
+        "onTimePerformance": 0
+    }
+    if current_schedule:
+        kpis = kpi_calculator.calculate_kpis(current_schedule)
+        stats["averageDelay"] = kpis.get("average_delay_minutes", 0)
+        stats["onTimePerformance"] = kpis.get("punctuality_rate", 0)
+        stats["delayedTrains"] = kpis.get("delayed_trains", 0)
+        stats["onTimeTrains"] = kpis.get("on_time_trains", 0)
+        stats["totalTrains"] = kpis.get("total_trains", 0)
+    else:
+        trains = load_trains()
+        stats["totalTrains"] = len(trains)
+        stats["onTimeTrains"] = sum(not t.get("isDelayed", False) for t in trains)
+        stats["delayedTrains"] = sum(t.get("isDelayed", False) for t in trains)
+    alerts = load_events()
+    # stats["criticalAlerts"] = sum(1 for a in alerts if a.get("severity", "").upper() == "CRITICAL")
+    # a is resolving to be a string, not a dict
+    stats["criticalAlerts"] = sum(1 for a in alerts if isinstance(a, dict) and a.get("severity", "").upper() == "CRITICAL")
+    
+    return format_response(True, "Dashboard statistics", stats)
+
+@app.route("/api/refresh", methods=["POST"])
+def refresh_data():
+    # Just reload data from file for MVP
+    return format_response(True, "Data refreshed successfully", {"lastUpdated": datetime.now().isoformat()})
+
+@app.route("/api/schedule/generate", methods=["POST"])
 def generate_schedule():
     global current_schedule, baseline_schedule
-    
+    trains = load_trains()
+    stations, tracks = load_stations_tracks()
+    scheduler = BasicScheduler(trains, stations, tracks)
+    baseline_schedule = scheduler.create_initial_schedule()
     try:
-        # Use basic scheduler for quick results
-        scheduler = BasicScheduler(trains_data, stations_data, tracks_data)
-        baseline_schedule = scheduler.create_initial_schedule()
-        
-        # Try optimization if time permits
-        try:
-            optimizer = TrainScheduleOptimizer(trains_data, tracks_data, {s['code']: s for s in stations_data})
-            optimized_schedule = optimizer.optimize_schedule()
-            
-            if optimized_schedule:
-                current_schedule = optimized_schedule
-                print("Using optimized schedule")
-            else:
-                current_schedule = baseline_schedule
-                print("Using basic schedule")
-                
-        except Exception as e:
-            print(f"Optimization failed, using basic schedule: {e}")
+        optimizer = TrainScheduleOptimizer(trains, tracks, {s['code']: s for s in stations})
+        optimized_schedule = optimizer.optimize_schedule()
+        if optimized_schedule:
+            current_schedule = optimized_schedule
+        else:
             current_schedule = baseline_schedule
-        
-        # Calculate KPIs
-        kpis = kpi_calculator.calculate_kpis(current_schedule)
-        
-        # Emit real-time update
-        socketio.emit('schedule_updated', {
-            'schedule': current_schedule,
-            'kpis': kpis,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        return jsonify({
-            'success': True,
-            'schedule': current_schedule,
-            'kpis': kpis,
-            'total_trains': len(current_schedule)
-        })
-        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"[ERROR] Optimization failed, falling back: {e}")
+        current_schedule = baseline_schedule
+    return format_response(True, "Schedule generated", map_schedule_to_traininfo(current_schedule))
 
-@app.route('/api/schedule/current', methods=['GET'])
+@app.route("/api/schedule/current", methods=["GET"])
 def get_current_schedule():
-    kpis = kpi_calculator.calculate_kpis(current_schedule) if current_schedule else {}
-    
-    return jsonify({
-        'schedule': current_schedule,
-        'kpis': kpis,
-        'timestamp': datetime.now().isoformat()
-    })
+    global current_schedule
+    if not current_schedule:
+        return format_response(False, "No schedule generated yet - POST /api/schedule/generate", code=404)
+    return format_response(True, "Current schedule", map_schedule_to_traininfo(current_schedule))
 
-@app.route('/api/disruption', methods=['POST'])
-def handle_disruption():
+@app.route("/api/disruption", methods=["POST"])
+def report_disruption():
     global current_schedule, disruption_handler
-    
-    try:
-        event_data = request.json
-        
-        if not disruption_handler:
-            scheduler = BasicScheduler(trains_data, stations_data, tracks_data)
-            optimizer = TrainScheduleOptimizer(trains_data, tracks_data, {s['code']: s for s in stations_data})
-            disruption_handler = DisruptionHandler(scheduler, optimizer)
-        
-        # Process disruption
-        updated_schedule = disruption_handler.handle_disruption(event_data, current_schedule)
-        current_schedule = updated_schedule
-        
-        # Calculate new KPIs
-        kpis = kpi_calculator.calculate_kpis(current_schedule)
-        
-        # Emit real-time update
-        socketio.emit('disruption_handled', {
-            'event': event_data,
-            'updated_schedule': current_schedule,
-            'kpis': kpis,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        return jsonify({
-            'success': True,
-            'event_processed': event_data['event_id'],
-            'affected_trains': len(event_data.get('affected_trains', [])),
-            'updated_schedule': current_schedule,
-            'kpis': kpis
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+    event_data = request.json
+    if not current_schedule:
+        return format_response(False, "No schedule loaded", code=400)
+    if not disruption_handler:
+        trains = load_trains()
+        stations, tracks = load_stations_tracks()
+        scheduler = BasicScheduler(trains, stations, tracks)
+        optimizer = TrainScheduleOptimizer(trains, tracks, {s['code']: s for s in stations})
+        disruption_handler = DisruptionHandler(scheduler, optimizer)
+    updated_schedule = disruption_handler.handle_disruption(event_data, current_schedule)
+    current_schedule = updated_schedule
+    return format_response(True, "Disruption handled", map_schedule_to_traininfo(current_schedule))
 
-@app.route('/api/whatif', methods=['POST'])
-def whatif_simulation():
-    """
-    Run what-if scenarios without affecting current schedule
-    """
-    try:
-        scenario_data = request.json
-        
-        # Create a copy of current schedule for simulation
-        simulation_schedule = current_schedule.copy()
-        
-        # Apply scenario changes
-        scenario_type = scenario_data.get('type', 'delay')
-        
-        if scenario_type == 'delay':
-            # Simulate train delay
-            train_id = scenario_data['train_id']
-            delay_minutes = scenario_data['delay_minutes']
-            
-            if train_id in simulation_schedule:
-                train_schedule = simulation_schedule[train_id]
-                original_dep = datetime.fromisoformat(train_schedule['optimized_departure'])
-                new_dep = original_dep + timedelta(minutes=delay_minutes)
-                
-                simulation_schedule[train_id]['optimized_departure'] = new_dep.isoformat()
-                simulation_schedule[train_id]['delay_minutes'] = train_schedule.get('delay_minutes', 0) + delay_minutes
-        
-        elif scenario_type == 'cancel':
-            # Simulate train cancellation
-            train_id = scenario_data['train_id']
-            if train_id in simulation_schedule:
-                simulation_schedule[train_id]['status'] = 'cancelled'
-        
-        # Calculate KPIs for simulation
-        simulation_kpis = kpi_calculator.calculate_kpis(simulation_schedule)
-        original_kpis = kpi_calculator.calculate_kpis(current_schedule)
-        
-        # Compare with current schedule
-        improvements = kpi_calculator.calculate_improvement_metrics(original_kpis, simulation_kpis)
-        
-        return jsonify({
-            'success': True,
-            'scenario': scenario_data,
-            'simulated_schedule': simulation_schedule,
-            'original_kpis': original_kpis,
-            'simulated_kpis': simulation_kpis,
-            'impact_analysis': improvements
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+@app.route("/api/whatif", methods=["POST"])
+def whatif_scenario():
+    scenario = request.json
+    if not current_schedule:
+        return format_response(False, "No schedule loaded", code=400)
+    simulation = current_schedule.copy()
+    if scenario.get("type") == "delay":
+        train_id = scenario.get("train_id")
+        minutes = int(scenario.get("delay_minutes", 30))
+        if train_id in simulation:
+            train_entry = simulation[train_id]
+            old_delay = train_entry.get("delay_minutes", 0)
+            train_entry["delay_minutes"] = old_delay + minutes
+    elif scenario.get("type") == "cancel":
+        train_id = scenario.get("train_id")
+        if train_id in simulation:
+            train_entry = simulation[train_id]
+            train_entry["status"] = "CANCELLED"
+    return format_response(True, "What-if scenario simulated", map_schedule_to_traininfo(simulation))
 
-@app.route('/api/kpis', methods=['GET'])
-def get_kpis():
-    """
-    Get current KPIs and performance metrics
-    """
-    kpis = kpi_calculator.calculate_kpis(current_schedule) if current_schedule else {}
-    
-    # Add baseline comparison if available
-    if baseline_schedule:
-        baseline_kpis = kpi_calculator.calculate_kpis(baseline_schedule)
-        improvements = kpi_calculator.calculate_improvement_metrics(baseline_kpis, kpis)
-        kpis['improvements'] = improvements
-        kpis['baseline_comparison'] = baseline_kpis
-    
-    return jsonify(kpis)
+@app.errorhandler(404)
+def notfound(e):
+    return format_response(False, "Endpoint not found", code=404)
 
-@app.route('/api/disruptions/active', methods=['GET'])
-def get_active_disruptions():
-    """
-    Get list of active disruptions
-    """
-    if disruption_handler:
-        disruptions = disruption_handler.get_active_disruptions()
-        return jsonify(disruptions)
-    else:
-        return jsonify({})
+@app.errorhandler(500)
+def internalerror(e):
+    return format_response(False, "Internal server error", code=500)
 
-# WebSocket events for real-time updates
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
-    emit('connected', {'data': 'Connected to train control system'})
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    print('Client disconnected')
-
-@socketio.on('request_live_update')
-def handle_live_update_request():
-    kpis = kpi_calculator.calculate_kpis(current_schedule) if current_schedule else {}
-    
-    emit('live_update', {
-        'schedule': current_schedule,
-        'kpis': kpis,
-        'timestamp': datetime.now().isoformat()
-    })
-
-if __name__ == '__main__':
-    print("Loading synthetic data...")
-    load_synthetic_data()
-    
-    print("Starting Flask app...")
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    print("[STARTUP] AI-Powered Train Scheduler Flask API starting...")
+    app.run(debug=True, host="0.0.0.0", port=5000)
