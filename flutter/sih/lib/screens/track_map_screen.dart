@@ -12,6 +12,8 @@ import '../utils/page_transitions_fixed.dart';
 import '../widgets/user_menu.dart';
 import '../services/auth_service.dart';
 import '../widgets/app_sidebar.dart';
+import '../widgets/train_map_widget.dart';
+import 'package:latlong2/latlong.dart';
 
 class TrackMapScreen extends StatefulWidget {
   const TrackMapScreen({super.key});
@@ -396,12 +398,11 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
             spacing: 16,
             runSpacing: 8,
             children: [
-              _buildLegendItem(color: Colors.blue[100]!, label: 'Track'),
-              _buildLegendItem(color: Colors.green, label: 'Signal Green'),
-              _buildLegendItem(color: Colors.yellow[700]!, label: 'Signal Yellow'),
-              _buildLegendItem(color: Colors.red, label: 'Signal Red'),
-              _buildLegendItem(color: Colors.red[300]!, label: 'Train'),
-              _buildLegendItem(color: Colors.black, label: 'Station'),
+              _buildLegendItem(color: Colors.blue, label: 'Route Line'),
+              _buildLegendItem(color: Colors.green, label: 'Train Running'),
+              _buildLegendItem(color: Colors.orange, label: 'Train Delayed'),
+              _buildLegendItem(color: Colors.red, label: 'Train Stopped'),
+              _buildLegendItem(color: Colors.grey, label: 'Train Maintenance'),
             ],
           ),
         ],
@@ -428,17 +429,72 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
   }
 
   Widget _buildTrackNetwork() {
-    // This is a simplified track network with main track and branches
+    // Sample train data for demonstration
+    final List<TrainMarker> trainMarkers = [
+      TrainMarker(
+        id: '12951',
+        name: 'Rajdhani Express',
+        position: const LatLng(28.6139, 77.2090), // Delhi
+        status: TrainStatus.running,
+        route: 'Delhi-Mumbai',
+        lastUpdate: DateTime.now(),
+      ),
+      TrainMarker(
+        id: '2265',
+        name: 'Shatabdi Express',
+        position: const LatLng(19.0760, 72.8777), // Mumbai
+        status: TrainStatus.delayed,
+        route: 'Mumbai-Pune',
+        lastUpdate: DateTime.now().subtract(const Duration(minutes: 5)),
+      ),
+      TrainMarker(
+        id: '2002',
+        name: 'Duronto Express',
+        position: const LatLng(12.9716, 77.5946), // Bangalore
+        status: TrainStatus.running,
+        route: 'Bangalore-Chennai',
+        lastUpdate: DateTime.now().subtract(const Duration(minutes: 2)),
+      ),
+    ];
+
+    // Sample route points (Delhi to Mumbai)
+    final List<LatLng> routePoints = [
+      const LatLng(28.6139, 77.2090), // Delhi
+      const LatLng(26.2389, 73.0243), // Ajmer
+      const LatLng(23.0225, 72.5714), // Ahmedabad
+      const LatLng(19.0760, 72.8777), // Mumbai
+    ];
+
     return Container(
-      height: 300,
-      color: Colors.grey[100],
-      child: CustomPaint(
-        painter: TrackPainter(
-          trainPositions: _trainPositions,
-          signalStatus: _signalStatus,
-          trackStatus: _trackStatus,
+      height: 400,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: TrainMapWidget(
+          initialCenter: const LatLng(23.0225, 72.5714), // Center on India
+          initialZoom: 5.0,
+          trainMarkers: trainMarkers,
+          routePoints: routePoints,
+          onTap: (point) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Tapped at: ${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}'),
+                backgroundColor: const Color(0xFF0D47A1),
+              ),
+            );
+          },
+          onLongPress: (point) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Long pressed at: ${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}'),
+                backgroundColor: const Color(0xFF0D47A1),
+              ),
+            );
+          },
         ),
-        child: Container(),
       ),
     );
   }
@@ -578,178 +634,5 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
         ],
       ),
     );
-  }
-}
-
-// Custom painter to draw the track network
-class TrackPainter extends CustomPainter {
-  final Map<int, double> trainPositions;
-  final Map<String, String> signalStatus;
-  final Map<String, bool> trackStatus;
-
-  TrackPainter({
-    required this.trainPositions,
-    required this.signalStatus,
-    required this.trackStatus,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.blue[100]!
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke;
-
-    // Draw main track horizontal line
-    canvas.drawLine(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      paint,
-    );
-
-    // Draw branch tracks
-    // Branch 1 (top)
-    final branchPath1 = Path()
-      ..moveTo(size.width * 0.3, size.height / 2)
-      ..lineTo(size.width * 0.4, size.height * 0.2)
-      ..lineTo(size.width * 0.7, size.height * 0.2);
-    
-    // Branch 2 (bottom)
-    final branchPath2 = Path()
-      ..moveTo(size.width * 0.5, size.height / 2)
-      ..lineTo(size.width * 0.6, size.height * 0.8)
-      ..lineTo(size.width * 0.9, size.height * 0.8);
-    
-    canvas.drawPath(branchPath1, paint);
-    canvas.drawPath(branchPath2, paint);
-
-    // Draw stations
-    _drawStation(canvas, Offset(size.width * 0.1, size.height / 2), "Delhi");
-    _drawStation(canvas, Offset(size.width * 0.9, size.height / 2), "Mumbai");
-    _drawStation(canvas, Offset(size.width * 0.7, size.height * 0.2), "Jaipur");
-    _drawStation(canvas, Offset(size.width * 0.9, size.height * 0.8), "Chennai");
-
-    // Draw signal points
-    _drawSignal(canvas, Offset(size.width * 0.3, size.height / 2), signalStatus['Signal A1'] ?? 'green');
-    _drawSignal(canvas, Offset(size.width * 0.5, size.height / 2), signalStatus['Signal A2'] ?? 'green');
-    _drawSignal(canvas, Offset(size.width * 0.4, size.height * 0.2), signalStatus['Signal B1'] ?? 'green');
-    _drawSignal(canvas, Offset(size.width * 0.6, size.height * 0.8), signalStatus['Signal B2'] ?? 'green');
-
-    // Draw trains
-    trainPositions.forEach((trainNumber, position) {
-      // Main track
-      if (trainNumber == 12951) {
-        _drawTrain(canvas, Offset(position * size.width, size.height / 2), trainNumber.toString());
-      } 
-      // Top branch
-      else if (trainNumber == 2265) {
-        final x = size.width * 0.4 + (position * 0.3 * size.width);
-        _drawTrain(canvas, Offset(x, size.height * 0.2), trainNumber.toString());
-      } 
-      // Bottom branch
-      else if (trainNumber == 2002) {
-        final x = size.width * 0.6 + (position * 0.3 * size.width);
-        _drawTrain(canvas, Offset(x, size.height * 0.8), trainNumber.toString());
-      }
-    });
-  }
-
-  void _drawStation(Canvas canvas, Offset position, String name) {
-    // Draw station point
-    final stationPaint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.fill;
-    
-    canvas.drawCircle(position, 6, stationPaint);
-    
-    // Draw station name
-    final textSpan = TextSpan(
-      text: name,
-      style: const TextStyle(
-        color: Colors.black,
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-    
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-    );
-    
-    textPainter.layout();
-    textPainter.paint(canvas, Offset(position.dx - textPainter.width / 2, position.dy + 10));
-  }
-
-  void _drawSignal(Canvas canvas, Offset position, String status) {
-    Color color;
-    switch (status) {
-      case 'green':
-        color = Colors.green;
-        break;
-      case 'yellow':
-        color = Colors.yellow[700]!;
-        break;
-      case 'red':
-        color = Colors.red;
-        break;
-      default:
-        color = Colors.grey;
-    }
-    
-    final signalPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    
-    canvas.drawCircle(position, 4, signalPaint);
-  }
-
-  void _drawTrain(Canvas canvas, Offset position, String trainNumber) {
-    // Draw train as a rounded rectangle
-    final trainPaint = Paint()
-      ..color = Colors.red[300]!
-      ..style = PaintingStyle.fill;
-    
-    final rect = Rect.fromCenter(
-      center: position,
-      width: 30,
-      height: 15,
-    );
-    
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
-      trainPaint,
-    );
-    
-    // Draw train number
-    final textSpan = TextSpan(
-      text: trainNumber,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-    
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-    );
-    
-    textPainter.layout();
-    textPainter.paint(
-      canvas, 
-      Offset(
-        position.dx - textPainter.width / 2, 
-        position.dy - textPainter.height / 2,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRepaint(TrackPainter oldDelegate) {
-    return oldDelegate.trainPositions != trainPositions ||
-           oldDelegate.signalStatus != signalStatus ||
-           oldDelegate.trackStatus != trackStatus;
   }
 }
