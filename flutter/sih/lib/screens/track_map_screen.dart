@@ -9,6 +9,9 @@ import 'override_controls_screen.dart';
 import 'what_if_analysis_screen.dart';
 import 'performance_screen.dart';
 import '../utils/page_transitions_fixed.dart';
+import '../widgets/user_menu.dart';
+import '../services/auth_service.dart';
+import '../widgets/app_sidebar.dart';
 
 class TrackMapScreen extends StatefulWidget {
   const TrackMapScreen({super.key});
@@ -170,7 +173,10 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
               child: AnimatedBuilder(
                 animation: _sidebarAnimation,
                 builder: (context, child) {
-                  return _buildSidebar();
+                  return AppSidebar(
+                    sidebarAnimation: _sidebarAnimation,
+                    currentPage: 'track_map',
+                  );
                 },
               ),
             ),
@@ -224,206 +230,6 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
     );
   }
   
-  // WIDGET: The left navigation sidebar
-  Widget _buildSidebar() {
-    // Calculate width based on animation value
-    final double sidebarWidth = _sidebarAnimation.value * 250;
-    
-    // Don't render anything when fully collapsed
-    if (sidebarWidth < 1) {
-      return const SizedBox(width: 0);
-    }
-    
-    // Only show labels when sidebar width is sufficient
-    final bool showLabels = sidebarWidth > 80;
-    
-    return Container(
-      width: sidebarWidth,
-      color: Colors.white,
-      child: Column(
-        children: [
-          // Header with logo
-          if (showLabels)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Hero(
-                        tag: 'app_logo',
-                        child: const Icon(Icons.train_rounded, size: 28, color: Color(0xFF0D47A1)),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Hero(
-                          tag: 'app_title',
-                          child: const Material(
-                            color: Colors.transparent,
-                            child: Text(
-                              'Indian Railways', 
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Control Center', 
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(height: 1),
-                ],
-              ),
-            ),
-            
-          // Navigation items in scrollable area
-          Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Column(
-                  children: [
-                    _buildNavigationItem(
-                      icon: Icons.dashboard, 
-                      title: showLabels ? 'Dashboard' : '', 
-                      isSelected: false,
-                      onTap: _navigateToDashboard,
-                    ),
-                    _buildNavigationItem(
-                      icon: Icons.map, 
-                      title: showLabels ? 'Track Map' : '',
-                      isSelected: true,
-                    ),
-                    _buildNavigationItem(
-                      icon: Icons.lightbulb_outline, 
-                      title: showLabels ? 'AI Recommendations' : '',
-                      onTap: () {
-                        Navigator.of(context).pushReplacement(
-                          PageRoutes.fadeThrough(const AiRecommendationsScreen()),
-                        );
-                      },
-                    ),
-                    _buildNavigationItem(
-                      icon: Icons.rule, 
-                      title: showLabels ? 'Override Controls' : '',
-                      onTap: () {
-                        Navigator.of(context).pushReplacement(
-                          PageRoutes.fadeThrough(const OverrideControlsScreen()),
-                        );
-                      },
-                    ),
-                    _buildNavigationItem(
-                      icon: Icons.analytics_outlined, 
-                      title: showLabels ? 'What-if Analysis' : '',
-                      onTap: () {
-                        Navigator.of(context).pushReplacement(
-                          PageRoutes.fadeThrough(const WhatIfAnalysisScreen()),
-                        );
-                      },
-                    ),
-                    _buildNavigationItem(
-                      icon: Icons.bar_chart, 
-                      title: showLabels ? 'Performance' : '',
-                      onTap: () {
-                        Navigator.of(context).pushReplacement(
-                          PageRoutes.fadeThrough(const PerformanceScreen()),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // Footer with logout button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 8.0, 0, 16.0),
-            child: Column(
-              children: [
-                if (showLabels) const Divider(height: 1),
-                _buildNavigationItem(
-                  icon: Icons.logout, 
-                  title: showLabels ? 'Logout' : '',
-                  onTap: () {
-                    Navigator.of(context).pushReplacement(
-                      PageRoutes.fadeThrough(const LoginScreen()),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // WIDGET: Helper for a single item in the navigation sidebar
-  Widget _buildNavigationItem({
-    required IconData icon, 
-    required String title, 
-    bool isSelected = false,
-    VoidCallback? onTap,
-  }) {
-    final bool isCollapsed = title.isEmpty;
-    
-    if (isCollapsed) {
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: IconButton(
-          icon: Icon(
-            icon,
-            size: 22,
-            color: isSelected ? const Color(0xFF0D47A1) : Colors.grey[600],
-          ),
-          onPressed: onTap,
-          // Use appropriate tooltip when collapsed - based on the icon
-          tooltip: icon == Icons.dashboard ? 'Dashboard' :
-                 icon == Icons.map ? 'Track Map' :
-                 icon == Icons.lightbulb_outline ? 'AI Recommendations' :
-                 icon == Icons.rule ? 'Override Controls' :
-                 icon == Icons.analytics_outlined ? 'What-if Analysis' :
-                 icon == Icons.bar_chart ? 'Performance' :
-                 icon == Icons.logout ? 'Logout' : '',
-        ),
-      );
-    } else {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: ListTile(
-          dense: true,
-          leading: Icon(
-            icon, 
-            color: isSelected ? const Color(0xFF0D47A1) : Colors.grey[700],
-          ),
-          title: Text(
-            title, 
-            style: TextStyle(
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, 
-              color: isSelected ? const Color(0xFF0D47A1) : Colors.black87,
-            ),
-          ),
-          onTap: onTap,
-        ),
-      );
-    }
-  }
   
   // WIDGET: Top app bar with hamburger menu
   Widget _buildTopAppBar() {
@@ -477,6 +283,8 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
             },
             tooltip: 'Refresh data',
           ),
+          const SizedBox(width: 8),
+          const UserMenu(),
         ],
       ),
     );
@@ -488,6 +296,30 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
       children: [
         const Text('Track Map', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
         const Spacer(),
+        FutureBuilder<Map<String, dynamic>?>(
+          future: _loadUserStation(),
+          builder: (context, snapshot) {
+            final station = snapshot.data != null ? (snapshot.data!['station'] as String?) : null;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.place, size: 16, color: Color(0xFF0D47A1)),
+                  const SizedBox(width: 6),
+                  Text(
+                    station == null || station.isEmpty ? 'Station: Not set' : 'Station: $station',
+                    style: const TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 16),
         Chip(
           label: Text(
             _trackStatus.containsValue(false) ? 'Track Issue' : 'All Tracks Clear',
@@ -506,6 +338,12 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
         ),
       ],
     );
+  }
+
+  Future<Map<String, dynamic>?> _loadUserStation() async {
+    final user = AuthService().currentUser;
+    if (user == null) return null;
+    return await AuthService().fetchUserProfile(user.uid);
   }
 
   // Build the track layout section with dynamic trains.

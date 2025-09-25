@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import '../utils/page_transitions_fixed.dart';
+import '../services/auth_service.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,12 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   String? _selectedRole;
-  final List<String> _roles = [
-    'Station Master',
-    'Train Operator',
-    'Admin',
-    'Any role',
-  ];
+  final List<String> _roles = [];
 
   @override
   Widget build(BuildContext context) {
@@ -75,12 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 20),
-                        // Username
+                        // Email
                         TextField(
                           controller: _usernameController,
+                          keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
-                            labelText: 'Username',
-                            prefixIcon: Icon(Icons.person_outline, color: Colors.grey[600]),
+                            labelText: 'Email ID',
+                            prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -106,48 +104,28 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Role Dropdown
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedRole,
-                          hint: const Text('Select your role'),
-                          decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.work_outline, color: Colors.grey[600]),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                          ),
-                          items: _roles.map((role) {
-                            return DropdownMenuItem<String>(
-                              value: role,
-                              child: Text(role),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedRole = value;
-                            });
-                          },
-                        ),
                         const SizedBox(height: 24),
                         // Login Button
                         ElevatedButton(
-                          onPressed: () {
-                            final username = _usernameController.text.trim();
+                          onPressed: () async {
+                            final email = _usernameController.text.trim();
                             final password = _passwordController.text.trim();
-                            final role = _selectedRole;
-                            if (username == 'demo' && password == 'demo' && role != null) {
+                            if (email.isEmpty || password.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Please fill all fields')),
+                              );
+                              return;
+                            }
+                            try {
+                              final credential = await AuthService().signInWithEmailPassword(email, password);
+                              // Optionally verify role from Firestore; do not create new users here
+                              if (!mounted) return;
                               Navigator.of(context).pushReplacement(
                                 PageRoutes.scaleFade(const DashboardScreen()),
                               );
-                            } else {
+                            } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Invalid credentials. Please use the demo credentials.'),
-                                  backgroundColor: Colors.red,
-                                ),
+                                SnackBar(content: Text('Authentication failed: $e')),
                               );
                             }
                           },
@@ -163,31 +141,26 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(fontSize: 16, color: Colors.white),
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('New user? '),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).push(PageRoutes.scaleFade(const RegisterScreen()));
+                              },
+                              child: const Text('Register'),
+                            ),
+                          ],
+                        ),
                         // No Google Sign-In button
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Demo Credentials Card
-                Card(
-                  elevation: 2.0,
-                  color: Colors.blue[50],
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Demo Credentials', style: TextStyle(fontWeight: FontWeight.bold)),
-                        SizedBox(height: 8),
-                        Text('Username: demo'),
-                        Text('Password: demo'),
-                        Text('Role: Any role'),
-                      ],
-                    ),
-                  ),
-                ),
+                        // Demo credentials card removed
                 const SizedBox(height: 40),
                 // Footer
                 Text(
