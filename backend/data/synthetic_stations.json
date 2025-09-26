@@ -3,164 +3,284 @@
     {
       "code": "MAS",
       "name": "Chennai Central",
-      "platforms": 12,
-      "is_terminus": true
+      "platforms": 15,
+      "platform_length": 600,
+      "is_terminus": true,
+      "holding_capacity": 12,
+      "latitude": 13.0827,
+      "longitude": 80.2707
+    },
+    {
+      "code": "PER", 
+      "name": "Perambur",
+      "platforms": 4,
+      "platform_length": 400,
+      "is_terminus": false,
+      "holding_capacity": 3,
+      "latitude": 13.1185,
+      "longitude": 80.2334
     },
     {
       "code": "AJJ",
-      "name": "Arakkonam Junction",
+      "name": "Arakkonam Junction", 
       "platforms": 6,
-      "is_terminus": false
+      "platform_length": 500,
+      "is_terminus": false,
+      "holding_capacity": 5,
+      "latitude": 13.0849,
+      "longitude": 79.6710
     },
     {
       "code": "KPD",
       "name": "Katpadi Junction",
       "platforms": 8,
-      "is_terminus": false
+      "platform_length": 550,
+      "is_terminus": false, 
+      "holding_capacity": 6,
+      "latitude": 12.9692,
+      "longitude": 79.1036
     },
     {
-      "code": "PER",
-      "name": "Perambur",
-      "platforms": 4,
-      "is_terminus": false
+      "code": "SA",
+      "name": "Salem Junction",
+      "platforms": 7,
+      "platform_length": 500,
+      "is_terminus": false,
+      "holding_capacity": 5,
+      "latitude": 11.6643,
+      "longitude": 78.1460
     },
     {
-      "code": "TRL",
-      "name": "Tiruvallur",
-      "platforms": 4,
-      "is_terminus": false
+      "code": "ED",
+      "name": "Erode Junction",
+      "platforms": 6,
+      "platform_length": 480,
+      "is_terminus": false,
+      "holding_capacity": 4,
+      "latitude": 11.3410,
+      "longitude": 77.7172
     },
     {
-      "code": "AVD",
-      "name": "Avadi",
-      "platforms": 3,
-      "is_terminus": false
-    },
-    {
-      "code": "PUT",
-      "name": "Pattabiram",
-      "platforms": 3,
-      "is_terminus": false
-    },
-    {
-      "code": "TO",
-      "name": "Tiruchchirappalli",
+      "code": "CBE",
+      "name": "Coimbatore Junction",
       "platforms": 10,
-      "is_terminus": true
+      "platform_length": 520,
+      "is_terminus": true,
+      "holding_capacity": 8,
+      "latitude": 11.0168,
+      "longitude": 76.9558
+    },
+    {
+      "code": "SBC", 
+      "name": "Bangalore City",
+      "platforms": 12,
+      "platform_length": 580,
+      "is_terminus": true,
+      "holding_capacity": 10,
+      "latitude": 12.9716,
+      "longitude": 77.5946
+    },
+    {
+      "code": "HYB",
+      "name": "Hyderabad Deccan",
+      "platforms": 8,
+      "platform_length": 500,
+      "is_terminus": true,
+      "holding_capacity": 7,
+      "latitude": 17.3850,
+      "longitude": 78.4867
+    },
+    {
+      "code": "NZM",
+      "name": "Hazrat Nizamuddin",
+      "platforms": 7,
+      "platform_length": 600,
+      "is_terminus": false,
+      "holding_capacity": 6,
+      "latitude": 28.5839,
+      "longitude": 77.2531
     }
   ],
   "tracks": [
     {
-      "track_id": "MAS-AJJ-UP",
+      "track_id": "MAS-PER-UP1",
+      "from_station": "MAS", 
+      "to_station": "PER",
+      "distance_km": 8,
+      "max_speed": 80,
+      "direction": "UP",
+      "track_type": "main"
+    },
+    {
+      "track_id": "MAS-PER-UP2",
       "from_station": "MAS",
-      "to_station": "AJJ",
-      "distance_km": 40,
-      "max_speed": 128,
-      "direction": "UP"
+      "to_station": "PER", 
+      "distance_km": 8,
+      "max_speed": 80,
+      "direction": "UP",
+      "track_type": "main"
     },
     {
-      "track_id": "MAS-AJJ-DOWN",
-      "from_station": "AJJ",
+      "track_id": "PER-MAS-DOWN1",
+      "from_station": "PER",
       "to_station": "MAS",
-      "distance_km": 40,
-      "max_speed": 102,
-      "direction": "DOWN"
+      "distance_km": 8,
+      "max_speed": 80,
+      "direction": "DOWN",
+      "track_type": "main"
     },
     {
-      "track_id": "AJJ-KPD-UP",
+      "track_id": "PER-MAS-DOWN2", 
+      "from_station": "PER",
+      "to_station": "MAS",
+      "distance_km": 8,
+      "max_speed": 80,
+      "direction": "DOWN",
+      "track_type": "main"
+    },
+    {
+      "track_id": "PER-AJJ-UP1",
+      "from_station": "PER",
+      "to_station": "AJJ",
+      "distance_km": 42,
+      "max_speed": 110,
+      "direction": "UP",
+      "track_type": "main"
+    },
+    {
+      "track_id": "PER-AJJ-UP2",
+      "from_station": "PER", 
+      "to_station": "AJJ",
+      "distance_km": 42,
+      "max_speed": 110,
+      "direction": "UP",
+      "track_type": "main"
+    },
+    {
+      "track_id": "AJJ-PER-DOWN1",
+      "from_station": "AJJ",
+      "to_station": "PER",
+      "distance_km": 42,
+      "max_speed": 110,
+      "direction": "DOWN",
+      "track_type": "main"
+    },
+    {
+      "track_id": "AJJ-PER-DOWN2",
+      "from_station": "AJJ",
+      "to_station": "PER",
+      "distance_km": 42,
+      "max_speed": 110,
+      "direction": "DOWN",
+      "track_type": "main"
+    },
+    {
+      "track_id": "AJJ-KPD-UP1",
       "from_station": "AJJ",
       "to_station": "KPD",
-      "distance_km": 44,
-      "max_speed": 111,
-      "direction": "UP"
+      "distance_km": 38,
+      "max_speed": 120,
+      "direction": "UP",
+      "track_type": "main"
     },
     {
-      "track_id": "AJJ-KPD-DOWN",
+      "track_id": "AJJ-KPD-UP2", 
+      "from_station": "AJJ",
+      "to_station": "KPD",
+      "distance_km": 38,
+      "max_speed": 120,
+      "direction": "UP",
+      "track_type": "main"
+    },
+    {
+      "track_id": "KPD-AJJ-DOWN1",
       "from_station": "KPD",
       "to_station": "AJJ",
-      "distance_km": 44,
-      "max_speed": 91,
-      "direction": "DOWN"
+      "distance_km": 38,
+      "max_speed": 120,
+      "direction": "DOWN",
+      "track_type": "main"
     },
     {
-      "track_id": "KPD-PER-UP",
+      "track_id": "KPD-AJJ-DOWN2",
       "from_station": "KPD",
-      "to_station": "PER",
-      "distance_km": 80,
-      "max_speed": 87,
-      "direction": "UP"
+      "to_station": "AJJ",
+      "distance_km": 38,
+      "max_speed": 120,
+      "direction": "DOWN",
+      "track_type": "main"
     },
     {
-      "track_id": "KPD-PER-DOWN",
-      "from_station": "PER",
+      "track_id": "KPD-SA-UP1",
+      "from_station": "KPD",
+      "to_station": "SA",
+      "distance_km": 85,
+      "max_speed": 130,
+      "direction": "UP",
+      "track_type": "main"
+    },
+    {
+      "track_id": "KPD-SA-UP2",
+      "from_station": "KPD",
+      "to_station": "SA", 
+      "distance_km": 85,
+      "max_speed": 130,
+      "direction": "UP",
+      "track_type": "main"
+    },
+    {
+      "track_id": "SA-KPD-DOWN1",
+      "from_station": "SA",
       "to_station": "KPD",
-      "distance_km": 80,
-      "max_speed": 118,
-      "direction": "DOWN"
+      "distance_km": 85,
+      "max_speed": 130,
+      "direction": "DOWN",
+      "track_type": "main"
     },
     {
-      "track_id": "PER-TRL-UP",
-      "from_station": "PER",
-      "to_station": "TRL",
-      "distance_km": 66,
-      "max_speed": 107,
-      "direction": "UP"
+      "track_id": "SA-KPD-DOWN2",
+      "from_station": "SA",
+      "to_station": "KPD",
+      "distance_km": 85,
+      "max_speed": 130,
+      "direction": "DOWN",
+      "track_type": "main"
     },
     {
-      "track_id": "PER-TRL-DOWN",
-      "from_station": "TRL",
-      "to_station": "PER",
-      "distance_km": 66,
-      "max_speed": 121,
-      "direction": "DOWN"
+      "track_id": "SA-ED-UP1",
+      "from_station": "SA",
+      "to_station": "ED",
+      "distance_km": 68,
+      "max_speed": 110,
+      "direction": "UP",
+      "track_type": "main"
     },
     {
-      "track_id": "TRL-AVD-UP",
-      "from_station": "TRL",
-      "to_station": "AVD",
-      "distance_km": 60,
-      "max_speed": 103,
-      "direction": "UP"
+      "track_id": "SA-ED-UP2",
+      "from_station": "SA", 
+      "to_station": "ED",
+      "distance_km": 68,
+      "max_speed": 110,
+      "direction": "UP",
+      "track_type": "main"
     },
     {
-      "track_id": "TRL-AVD-DOWN",
-      "from_station": "AVD",
-      "to_station": "TRL",
-      "distance_km": 60,
-      "max_speed": 88,
-      "direction": "DOWN"
+      "track_id": "ED-SA-DOWN1",
+      "from_station": "ED",
+      "to_station": "SA",
+      "distance_km": 68,
+      "max_speed": 110,
+      "direction": "DOWN",
+      "track_type": "main"
     },
     {
-      "track_id": "AVD-PUT-UP",
-      "from_station": "AVD",
-      "to_station": "PUT",
-      "distance_km": 64,
-      "max_speed": 89,
-      "direction": "UP"
-    },
-    {
-      "track_id": "AVD-PUT-DOWN",
-      "from_station": "PUT",
-      "to_station": "AVD",
-      "distance_km": 64,
-      "max_speed": 126,
-      "direction": "DOWN"
-    },
-    {
-      "track_id": "PUT-TO-UP",
-      "from_station": "PUT",
-      "to_station": "TO",
-      "distance_km": 71,
-      "max_speed": 116,
-      "direction": "UP"
-    },
-    {
-      "track_id": "PUT-TO-DOWN",
-      "from_station": "TO",
-      "to_station": "PUT",
-      "distance_km": 71,
-      "max_speed": 90,
-      "direction": "DOWN"
+      "track_id": "ED-SA-DOWN2",
+      "from_station": "ED",
+      "to_station": "SA",
+      "distance_km": 68,
+      "max_speed": 110,
+      "direction": "DOWN",
+      "track_type": "main"
     }
   ]
 }

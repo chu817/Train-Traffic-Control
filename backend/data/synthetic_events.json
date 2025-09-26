@@ -1,25 +1,59 @@
 {
-    "events": [
-        {
-            "event_id": 1,
-            "train_id": "12345",
-            "event_type": "delay",
-            "description": "Train delayed due to maintenance",
-            "timestamp": "2024-06-01T10:00:00Z"
-        },
-        {
-            "event_id": 2,
-            "train_id": "67890",
-            "event_type": "cancellation",
-            "description": "Train cancelled due to weather conditions",
-            "timestamp": "2024-06-01T11:00:00Z"
-        },
-        {
-            "event_id": 3,
-            "train_id": "54321",
-            "event_type": "reschedule",
-            "description": "Train rescheduled to depart at 12:30 PM",
-            "timestamp": "2024-06-01T09:30:00Z"
-        }
-    ]
+  "events": [
+    {
+      "event_id": "EVT001",
+      "type": "delay",
+      "affected_trains": ["12602", "12609"],
+      "expected_duration": 45,
+      "severity": "medium",
+      "description": "Signal failure at Chennai Central affecting departures",
+      "timestamp": "2025-09-26T08:15:00",
+      "location": "MAS",
+      "reason": "signal_failure"
+    },
+    {
+      "event_id": "EVT002", 
+      "type": "obstruction",
+      "affected_tracks": ["AJJ-KPD-UP1"],
+      "expected_duration": 90,
+      "severity": "high",
+      "description": "Tree fallen on track between Arakkonam and Katpadi",
+      "timestamp": "2025-09-26T10:30:00",
+      "location": "KM 25+500 on AJJ-KPD section",
+      "reason": "weather_obstruction"
+    },
+    {
+      "event_id": "EVT003",
+      "type": "breakdown",
+      "affected_trains": ["66302"],
+      "expected_duration": 120,
+      "severity": "high",
+      "description": "Engine failure of freight train",
+      "timestamp": "2025-09-26T05:45:00", 
+      "location": "KPD",
+      "reason": "mechanical_failure"
+    },
+    {
+      "event_id": "EVT004",
+      "type": "weather",
+      "affected_trains": ["12615", "16525", "22625"],
+      "expected_duration": 60,
+      "severity": "medium",
+      "description": "Heavy rainfall affecting Chennai division", 
+      "timestamp": "2025-09-26T12:00:00",
+      "location": "Chennai Division",
+      "reason": "monsoon_rain"
+    },
+    {
+      "event_id": "EVT005",
+      "type": "reschedule",
+      "affected_trains": ["56023"],
+      "expected_duration": 30,
+      "severity": "low",
+      "description": "Platform change due to maintenance work",
+      "timestamp": "2025-09-26T06:30:00",
+      "location": "MAS Platform 12",
+      "reason": "maintenance"
+    }
+  ]
 }
