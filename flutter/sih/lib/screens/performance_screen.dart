@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:math' as math;
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import 'track_map_screen.dart';
@@ -10,6 +9,7 @@ import 'what_if_analysis_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 import '../widgets/user_menu.dart';
 import '../widgets/app_sidebar.dart';
+import '../services/train_api_service.dart';
 
 class PerformanceScreen extends StatefulWidget {
   const PerformanceScreen({super.key});
@@ -27,6 +27,9 @@ class _PerformanceScreenState extends State<PerformanceScreen> with TickerProvid
   // Data for charts
   final List<FlSpot> punctualityData = [];
   final List<FlSpot> delayData = [];
+  Map<String, dynamic>? _metrics;
+  bool _loading = false;
+  String? _error;
   
   @override
   void initState() {
@@ -50,8 +53,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> with TickerProvid
     // Start expanded
     _sidebarController.value = 1.0;
     
-    // Generate random chart data
-    _generateChartData();
+    _loadPerformance();
   }
 
   @override
@@ -72,24 +74,33 @@ class _PerformanceScreenState extends State<PerformanceScreen> with TickerProvid
     });
   }
   
-  // Generate random data for charts
-  void _generateChartData() {
-    final random = math.Random();
-    
-    // Generate punctuality data (between 80% and 95%)
-    for (int i = 0; i < 24; i++) {
-      punctualityData.add(FlSpot(
-        i.toDouble(), 
-        80 + random.nextDouble() * 15
-      ));
-    }
-    
-    // Generate delay data (between 5 and 25 minutes)
-    for (int i = 0; i < 24; i++) {
-      delayData.add(FlSpot(
-        i.toDouble(), 
-        5 + random.nextDouble() * 20
-      ));
+  Future<void> _loadPerformance() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      // Align with dashboard: request metrics for AGC (Agra Cantt)
+      final data = await TrainApiService.getPerformanceMetrics(stations: const ['AGC']);
+      _metrics = data;
+      // Build time series from backend trends
+      punctualityData.clear();
+      delayData.clear();
+      final List<dynamic> p = (data['trends']?['punctuality'] as List? ?? []);
+      final List<dynamic> d = (data['trends']?['average_delay'] as List? ?? []);
+      for (final e in p) {
+        final hour = (e['hour'] ?? 0).toDouble();
+        final value = (e['value'] ?? 0).toDouble();
+        punctualityData.add(FlSpot(hour, value));
+      }
+      for (final e in d) {
+        final hour = (e['hour'] ?? 0).toDouble();
+        final value = (e['value'] ?? 0).toDouble();
+        delayData.add(FlSpot(hour, value));
+      }
+      if (!mounted) return;
+      setState(() { _loading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _error = e.toString(); _loading = false; });
     }
   }
 
@@ -242,40 +253,56 @@ class _PerformanceScreenState extends State<PerformanceScreen> with TickerProvid
   }
 
   Widget _buildPerformanceDashboard() {
+    final kpis = _metrics?['kpis'] as Map<String, dynamic>?;
+    final statusCounts = _metrics?['status_counts'] as Map<String, dynamic>?;
+    final onTime = kpis?['punctuality_rate']?.toString() ?? '—';
+    final avgDelay = kpis?['average_delay_minutes']?.toString() ?? '—';
+    final active = kpis?['active_trains']?.toString() ?? '—';
+    final delayed = (statusCounts?['delayed'] ?? kpis?['delayed_trains'])?.toString() ?? '—';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Error: $_error', style: const TextStyle(color: Colors.red)),
+          ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _buildKpiCard(
               title: 'On-time Performance', 
-              value: '87%',
-              subtitle: '↑ 2.3% from last week',
+              value: '$onTime%',
+              subtitle: 'Based on current trains',
               iconData: Icons.schedule,
               iconColor: Colors.green,
               subtitleColor: Colors.green,
             ),
             _buildKpiCard(
               title: 'Average Delay', 
-              value: '14.2 min',
-              subtitle: '↓ 1.8 min from last week',
+              value: '$avgDelay min',
+              subtitle: 'Across reporting window',
               iconData: Icons.timelapse,
               iconColor: Colors.orange,
               subtitleColor: Colors.green,
             ),
             _buildKpiCard(
               title: 'Trains Running', 
-              value: '327',
-              subtitle: '98% of scheduled',
+              value: active,
+              subtitle: 'Actively moving',
               iconData: Icons.train,
               iconColor: Colors.blue,
               subtitleColor: Colors.grey[600]!,
             ),
             _buildKpiCard(
-              title: 'Critical Incidents', 
-              value: '1',
-              subtitle: '↓ 3 from yesterday',
+              title: 'Delayed Trains', 
+              value: delayed,
+              subtitle: 'Currently delayed',
               iconData: Icons.warning_amber,
               iconColor: Colors.red,
               subtitleColor: Colors.green,
@@ -468,65 +495,67 @@ class _PerformanceScreenState extends State<PerformanceScreen> with TickerProvid
                     ),
                     const SizedBox(height: 16),
                     Expanded(
-                      child: LineChart(
-                        LineChartData(
-                          lineTouchData: LineTouchData(
-                            touchTooltipData: LineTouchTooltipData(
-                              tooltipBgColor: Colors.white.withOpacity(0.8),
-                            ),
-                          ),
-                          gridData: FlGridData(
-                            show: true,
-                            drawVerticalLine: false,
-                            horizontalInterval: 5,
-                          ),
-                          titlesData: FlTitlesData(
-                            show: true,
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 30,
-                                interval: 4,
-                                getTitlesWidget: (value, meta) {
-                                  if (value % 4 != 0) return const Text('');
-                                  return Text(
-                                    '${value.toInt()}h',
-                                    style: const TextStyle(
-                                      color: Color(0xff72719b),
-                                      fontSize: 10,
+                      child: punctualityData.isEmpty
+                          ? const Center(child: Text('No punctuality data available'))
+                          : LineChart(
+                              LineChartData(
+                                lineTouchData: LineTouchData(
+                                  touchTooltipData: LineTouchTooltipData(
+                                    tooltipBgColor: Colors.white.withOpacity(0.8),
+                                  ),
+                                ),
+                                gridData: FlGridData(
+                                  show: true,
+                                  drawVerticalLine: false,
+                                  horizontalInterval: 5,
+                                ),
+                                titlesData: FlTitlesData(
+                                  show: true,
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 30,
+                                      interval: 4,
+                                      getTitlesWidget: (value, meta) {
+                                        if (value % 4 != 0) return const Text('');
+                                        return Text(
+                                          '${value.toInt()}h',
+                                          style: const TextStyle(
+                                            color: Color(0xff72719b),
+                                            fontSize: 10,
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
+                                  ),
+                                  rightTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  topTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                ),
+                                borderData: FlBorderData(show: false),
+                                minX: 0,
+                                maxX: 23,
+                                minY: 75,
+                                maxY: 100,
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    spots: punctualityData,
+                                    isCurved: true,
+                                    color: const Color(0xFF0D47A1),
+                                    barWidth: 3,
+                                    isStrokeCapRound: true,
+                                    dotData: const FlDotData(show: false),
+                                    belowBarData: BarAreaData(
+                                      show: true,
+                                      color: const Color(0xFF0D47A1).withOpacity(0.1),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                          ),
-                          borderData: FlBorderData(show: false),
-                          minX: 0,
-                          maxX: 23,
-                          minY: 75,
-                          maxY: 100,
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: punctualityData,
-                              isCurved: true,
-                              color: const Color(0xFF0D47A1),
-                              barWidth: 3,
-                              isStrokeCapRound: true,
-                              dotData: const FlDotData(show: false),
-                              belowBarData: BarAreaData(
-                                show: true,
-                                color: const Color(0xFF0D47A1).withOpacity(0.1),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -574,65 +603,67 @@ class _PerformanceScreenState extends State<PerformanceScreen> with TickerProvid
                     ),
                     const SizedBox(height: 16),
                     Expanded(
-                      child: LineChart(
-                        LineChartData(
-                          lineTouchData: LineTouchData(
-                            touchTooltipData: LineTouchTooltipData(
-                              tooltipBgColor: Colors.white.withOpacity(0.8),
-                            ),
-                          ),
-                          gridData: FlGridData(
-                            show: true,
-                            drawVerticalLine: false,
-                            horizontalInterval: 5,
-                          ),
-                          titlesData: FlTitlesData(
-                            show: true,
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 30,
-                                interval: 4,
-                                getTitlesWidget: (value, meta) {
-                                  if (value % 4 != 0) return const Text('');
-                                  return Text(
-                                    '${value.toInt()}h',
-                                    style: const TextStyle(
-                                      color: Color(0xff72719b),
-                                      fontSize: 10,
+                      child: delayData.isEmpty
+                          ? const Center(child: Text('No delay data available'))
+                          : LineChart(
+                              LineChartData(
+                                lineTouchData: LineTouchData(
+                                  touchTooltipData: LineTouchTooltipData(
+                                    tooltipBgColor: Colors.white.withOpacity(0.8),
+                                  ),
+                                ),
+                                gridData: FlGridData(
+                                  show: true,
+                                  drawVerticalLine: false,
+                                  horizontalInterval: 5,
+                                ),
+                                titlesData: FlTitlesData(
+                                  show: true,
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 30,
+                                      interval: 4,
+                                      getTitlesWidget: (value, meta) {
+                                        if (value % 4 != 0) return const Text('');
+                                        return Text(
+                                          '${value.toInt()}h',
+                                          style: const TextStyle(
+                                            color: Color(0xff72719b),
+                                            fontSize: 10,
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
+                                  ),
+                                  rightTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  topTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                ),
+                                borderData: FlBorderData(show: false),
+                                minX: 0,
+                                maxX: 23,
+                                minY: 0,
+                                maxY: 30,
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    spots: delayData,
+                                    isCurved: true,
+                                    color: Colors.red,
+                                    barWidth: 3,
+                                    isStrokeCapRound: true,
+                                    dotData: const FlDotData(show: false),
+                                    belowBarData: BarAreaData(
+                                      show: true,
+                                      color: Colors.red.withOpacity(0.2),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                          ),
-                          borderData: FlBorderData(show: false),
-                          minX: 0,
-                          maxX: 23,
-                          minY: 0,
-                          maxY: 30,
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: delayData,
-                              isCurved: true,
-                              color: Colors.red,
-                              barWidth: 3,
-                              isStrokeCapRound: true,
-                              dotData: const FlDotData(show: false),
-                              belowBarData: BarAreaData(
-                                show: true,
-                                color: Colors.red.withOpacity(0.2),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ],
                 ),

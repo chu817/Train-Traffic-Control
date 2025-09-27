@@ -13,7 +13,9 @@ import '../widgets/user_menu.dart';
 import '../services/auth_service.dart';
 import '../widgets/app_sidebar.dart';
 import '../widgets/train_map_widget.dart';
+import '../services/train_api_service.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
 
 class TrackMapScreen extends StatefulWidget {
   const TrackMapScreen({super.key});
@@ -23,35 +25,21 @@ class TrackMapScreen extends StatefulWidget {
 }
 
 class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProviderStateMixin {
-  // A map to store the position of each train.
-  final Map<int, double> _trainPositions = {
-    12951: 0.5,
-    2265: 0.9,
-    2002: 0.2,
-  };
-  
-  // A map to store the status of each track.
-  final Map<String, bool> _trackStatus = {
-    'Track 1': true,
-    'Track 2': true,
-    'Track 3': false,
-    'Junction A': true,
-  };
-  
-  // A map to store the status of each signal.
-  final Map<String, String> _signalStatus = {
-    'Signal A1': 'green',
-    'Signal A2': 'yellow',
-    'Signal B1': 'green',
-    'Signal B2': 'red',
-  };
+  // API data
+  List<TrainData> _trains = [];
+  List<RouteData> _routes = [];
+  List<StationData> _stations = [];
+  List<LiveTrainData> _liveTrains = [];
+  bool _isLoading = true;
+  bool _showLiveTrains = false;
+  String? _error;
+  Timer? _refreshTimer;
 
   // Animation controller for sidebar
   late AnimationController _sidebarController;
   late Animation<double> _sidebarAnimation;
   bool _isSidebarExpanded = true;
 
-  late Timer _timer;
   Timer? _timeUpdateTimer;
   final Random _random = Random();
   String _currentTime = '';
@@ -79,43 +67,96 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
     // Start expanded
     _sidebarController.value = 1.0;
     
-    // Start a timer that updates the train and signal positions every 3 seconds.
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      _updateTrainPositions();
-      _updateSignalStatus();
-    });
+    // Load data from API
+    _loadData();
+    
+    // Start auto-refresh for live trains
+    _startAutoRefresh();
   }
 
   @override
   void dispose() {
     // Cancel all timers to prevent memory leaks.
-    _timer.cancel();
     _timeUpdateTimer?.cancel();
+    _refreshTimer?.cancel();
     _sidebarController.dispose();
     super.dispose();
   }
   
-  // Update train positions randomly.
-  void _updateTrainPositions() {
-    setState(() {
-      _trainPositions.forEach((key, value) {
-        // Move each train randomly by a small amount.
-        _trainPositions[key] = (value + (_random.nextDouble() - 0.5) * 0.1).clamp(0.0, 1.0);
-      });
+  void _startAutoRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (_showLiveTrains) {
+        _loadData();
+      }
     });
   }
+  
+  // Load data from API
+  Future<void> _loadData() async {
+    try {
+      // Only show loading state on initial load, not on refreshes
+      if (_stations.isEmpty) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
 
-  // Update signal status randomly.
-  void _updateSignalStatus() {
-    setState(() {
-      _signalStatus.forEach((key, value) {
-        // Randomly change the signal status with a small probability
-        if (_random.nextInt(10) < 2) { // 20% chance of change
-          final statuses = ['green', 'yellow', 'red'];
-          _signalStatus[key] = statuses[_random.nextInt(statuses.length)];
+      // Get user's selected station
+      final currentUser = AuthService().currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+      final userProfile = await AuthService().fetchUserProfile(currentUser.uid);
+      final userStationName = userProfile?['station'] ?? 'NEW DELHI'; // Default to New Delhi if no station
+      
+      // Convert station name to station code
+      String userStationCode = 'NDLS'; // Default fallback
+      if (userStationName != null) {
+        // Try to find the station code by name
+        final allStations = await TrainApiService.getStations();
+        final matchingStation = allStations.firstWhere(
+          (station) => station.name.toUpperCase() == userStationName.toUpperCase(),
+          orElse: () => allStations.firstWhere(
+            (station) => station.id == 'NDLS',
+            orElse: () => allStations.first,
+          ),
+        );
+        userStationCode = matchingStation.id;
+      }
+      
+      print('🎯 User selected station name: $userStationName');
+      print('🎯 User selected station code: $userStationCode');
+
+      // Fetch only connected stations (no trains or routes)
+      final stations = await TrainApiService.getConnectedStations(userStationCode);
+
+      // Load live trains if enabled
+      List<LiveTrainData> liveTrains = [];
+      if (_showLiveTrains) {
+        try {
+          liveTrains = await TrainApiService.getLiveTrains(stations: [userStationCode]);
+        } catch (e) {
+          print('❌ Error loading live trains: $e');
         }
+      }
+
+      setState(() {
+        _trains = []; // No trains
+        _routes = []; // No routes
+        _stations = stations;
+        _liveTrains = liveTrains;
+        _isLoading = false;
       });
-    });
+      
+      print('✅ Loaded ${_stations.length} connected stations for $userStationCode');
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+      print('❌ Error loading data: $e');
+    }
   }
   
   void _updateTime() {
@@ -271,11 +312,47 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
             },
             tooltip: 'Search',
           ),
+          // Live trains toggle
+          Container(
+            constraints: const BoxConstraints(maxWidth: 200),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.train,
+                  color: _showLiveTrains ? Colors.green : const Color(0xFF0D47A1),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Switch(
+                  value: _showLiveTrains,
+                  onChanged: (value) {
+                    setState(() {
+                      _showLiveTrains = value;
+                    });
+                    _loadData(); // Reload data with new setting
+                  },
+                  activeColor: Colors.green,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Live Trains',
+                    style: TextStyle(
+                      color: _showLiveTrains ? Colors.green : const Color(0xFF0D47A1),
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
             onPressed: () {
-              _updateTrainPositions();
-              _updateSignalStatus();
+              _loadData();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Map data refreshed'),
@@ -297,6 +374,7 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
     return Row(
       children: [
         const Text('Track Map', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 16),
         const Spacer(),
         FutureBuilder<Map<String, dynamic>?>(
           future: _loadUserStation(),
@@ -324,10 +402,10 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
         const SizedBox(width: 16),
         Chip(
           label: Text(
-            _trackStatus.containsValue(false) ? 'Track Issue' : 'All Tracks Clear',
+            _error != null ? 'Connection Issue' : 'All Systems Operational',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          backgroundColor: _trackStatus.containsValue(false) ? Colors.red[600] : Colors.green[600],
+          backgroundColor: _error != null ? Colors.red[600] : Colors.green[600],
           padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
         const SizedBox(width: 16),
@@ -429,55 +507,88 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
   }
 
   Widget _buildTrackNetwork() {
-    // Sample train data for demonstration
-    final List<TrainMarker> trainMarkers = [
-      TrainMarker(
-        id: '12951',
-        name: 'Rajdhani Express',
-        position: const LatLng(28.6139, 77.2090), // Delhi
-        status: TrainStatus.running,
-        route: 'Delhi-Mumbai',
-        lastUpdate: DateTime.now(),
-      ),
-      TrainMarker(
-        id: '2265',
-        name: 'Shatabdi Express',
-        position: const LatLng(19.0760, 72.8777), // Mumbai
-        status: TrainStatus.delayed,
-        route: 'Mumbai-Pune',
-        lastUpdate: DateTime.now().subtract(const Duration(minutes: 5)),
-      ),
-      TrainMarker(
-        id: '2002',
-        name: 'Duronto Express',
-        position: const LatLng(12.9716, 77.5946), // Bangalore
-        status: TrainStatus.running,
-        route: 'Bangalore-Chennai',
-        lastUpdate: DateTime.now().subtract(const Duration(minutes: 2)),
-      ),
-    ];
+    if (_isLoading) {
+      return Container(
+        height: 400,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF0D47A1)),
+              SizedBox(height: 16),
+              Text('Loading train data...'),
+            ],
+          ),
+        ),
+      );
+    }
 
-    // Sample route points (Delhi to Mumbai)
-    final List<LatLng> routePoints = [
-      const LatLng(28.6139, 77.2090), // Delhi
-      const LatLng(26.2389, 73.0243), // Ajmer
-      const LatLng(23.0225, 72.5714), // Ahmedabad
-      const LatLng(19.0760, 72.8777), // Mumbai
-    ];
+    if (_error != null) {
+      return Container(
+        height: 400,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              const Text('Failed to load train data'),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Convert API data to map format - only stations
+    final List<StationMarker> stationMarkers = _buildStationMarkers();
+    
+    // No train markers or route points
+    final List<LatLng> routePoints = [];
 
     return Container(
-      height: 400,
+      height: 500, // Increased height for better visibility
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: TrainMapWidget(
+        child: Stack(
+          children: [
+            TrainMapWidget(
           initialCenter: const LatLng(23.0225, 72.5714), // Center on India
           initialZoom: 5.0,
-          trainMarkers: trainMarkers,
+          trainMarkers: _showLiveTrains ? _liveTrains.map((train) => train.toTrainMarker()).toList() : [],
           routePoints: routePoints,
+          stationMarkers: stationMarkers,
+          bounds: _calculateStationBounds(),
+          autoFitBounds: true,
           onTap: (point) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -494,6 +605,63 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
               ),
             );
           },
+            ),
+            // Live tracking indicator
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Station count indicator
+            if (stationMarkers.isNotEmpty)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${stationMarkers.length} Stations',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -502,44 +670,36 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
   // Build the track status panel.
   Widget _buildTrackStatusPanel() {
     return _buildStatusPanel(
-      title: 'Track Status',
-      children: _trackStatus.entries.map((entry) {
-        final trackName = entry.key;
-        final isGood = entry.value;
-        return _buildStatusItem(
-          trackName,
-          isGood ? Icons.check_circle : Icons.warning,
-          isGood ? Colors.green : Colors.red,
-        );
-      }).toList(),
+      title: 'Station Count',
+      children: [
+        _buildStatusItem(
+          'Total Connected: ${_stations.length}',
+          Icons.numbers,
+          Colors.blue,
+        ),
+        _buildStatusItem(
+          'Major Stations: ${_stations.where((s) => s.type == 'major').length}',
+          Icons.location_city,
+          Colors.blue,
+        ),
+        _buildStatusItem(
+          'Minor Stations: ${_stations.where((s) => s.type == 'minor').length}',
+          Icons.place,
+          Colors.green,
+        ),
+      ],
     );
   }
 
   // Build the signal status panel.
   Widget _buildSignalStatusPanel() {
     return _buildStatusPanel(
-      title: 'Signal Status',
-      children: _signalStatus.entries.map((entry) {
-        final signalName = entry.key;
-        final status = entry.value;
-        Color color;
-        switch (status) {
-          case 'green':
-            color = Colors.green;
-            break;
-          case 'yellow':
-            color = Colors.yellow[700]!;
-            break;
-          case 'red':
-            color = Colors.red;
-            break;
-          default:
-            color = Colors.grey;
-        }
+      title: 'Station Details',
+      children: _stations.map((station) {
         return _buildStatusItem(
-          signalName,
-          Icons.circle,
-          color,
+          '${station.name} (${station.id})',
+          Icons.info,
+          station.type == 'major' ? Colors.blue : Colors.green,
         );
       }).toList(),
     );
@@ -547,44 +707,131 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
 
   // Build active trains panel
   Widget _buildActiveTrainsPanel() {
-    return _buildStatusPanel(
-      title: 'Active Trains',
-      children: _trainPositions.entries.map((entry) {
-        final trainNumber = entry.key;
-        final position = entry.value;
-        final progress = (position * 100).toStringAsFixed(0);
-        
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.train, color: Colors.red[300], size: 20),
-                  const SizedBox(width: 8),
-                  Text("Train #$trainNumber"),
-                ],
-              ),
-              const SizedBox(height: 4),
-              LinearProgressIndicator(
-                value: position,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
-              const SizedBox(height: 2),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  "$progress% complete",
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+    if (_showLiveTrains && _liveTrains.isNotEmpty) {
+      return _buildStatusPanel(
+        title: 'Live Trains',
+        children: _liveTrains.map((train) {
+          Color statusColor;
+          IconData statusIcon;
+          String statusText;
+          
+          // Use demo status for better demo experience
+          if (train.demoStatus != null) {
+            switch (train.demoStatus) {
+              case 'RUNNING_FAST':
+                statusColor = Colors.green;
+                statusIcon = Icons.speed;
+                statusText = 'FAST';
+                break;
+              case 'BRIEF_HALT':
+                statusColor = Colors.orange;
+                statusIcon = Icons.pause;
+                statusText = 'BRIEF HALT';
+                break;
+              case 'ON_TIME':
+                statusColor = Colors.blue;
+                statusIcon = Icons.train;
+                statusText = 'ON TIME';
+                break;
+              default:
+                statusColor = Colors.grey;
+                statusIcon = Icons.train;
+                statusText = 'UNKNOWN';
+            }
+          } else {
+            // Fallback to original logic
+            if (train.haltMins > 0) {
+              statusColor = Colors.red;
+              statusIcon = Icons.stop;
+              statusText = 'HALT';
+            } else if (train.minsSinceDep > 30) {
+              statusColor = Colors.orange;
+              statusIcon = Icons.schedule;
+              statusText = 'DELAYED';
+            } else {
+              statusColor = Colors.green;
+              statusIcon = Icons.train;
+              statusText = 'RUNNING';
+            }
+          }
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(statusIcon, color: statusColor, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        train.trainName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'At: ${train.currentStationName}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    } else {
+      return _buildStatusPanel(
+        title: 'Connected Stations',
+        children: _stations.map((station) {
+          Color statusColor;
+          IconData statusIcon;
+          
+          if (station.type == 'major') {
+            statusColor = Colors.blue;
+            statusIcon = Icons.location_city;
+          } else {
+            statusColor = Colors.green;
+            statusIcon = Icons.place;
+          }
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(statusIcon, color: statusColor, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    station.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Text(
+                  station.type.toUpperCase(),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
   }
 
   // Build a generic status panel.
@@ -633,6 +880,51 @@ class _TrackMapScreenState extends State<TrackMapScreen> with SingleTickerProvid
           ),
         ],
       ),
+    );
+  }
+
+  // Build station markers for the map - only connected stations
+  List<StationMarker> _buildStationMarkers() {
+    if (_stations.isEmpty) return [];
+    
+    // The first station in the list should be the user's station
+    // (as returned by the connected stations API)
+    final userStationCode = _stations.isNotEmpty ? _stations.first.id : '';
+    
+    return _stations.map((station) {
+      return StationMarker(
+        id: station.id,
+        name: station.name,
+        position: station.position,
+        type: station.type,
+        isUserStation: station.id == userStationCode,
+      );
+    }).toList();
+  }
+
+  // Calculate bounds for auto-zoom to connected stations
+  LatLngBounds? _calculateStationBounds() {
+    if (_stations.isEmpty) return null;
+    
+    double minLat = _stations.first.position.latitude;
+    double maxLat = _stations.first.position.latitude;
+    double minLng = _stations.first.position.longitude;
+    double maxLng = _stations.first.position.longitude;
+    
+    for (final station in _stations) {
+      minLat = minLat < station.position.latitude ? minLat : station.position.latitude;
+      maxLat = maxLat > station.position.latitude ? maxLat : station.position.latitude;
+      minLng = minLng < station.position.longitude ? minLng : station.position.longitude;
+      maxLng = maxLng > station.position.longitude ? maxLng : station.position.longitude;
+    }
+    
+    // Add some padding around the bounds
+    final latPadding = (maxLat - minLat) * 0.1;
+    final lngPadding = (maxLng - minLng) * 0.1;
+    
+    return LatLngBounds(
+      LatLng(minLat - latPadding, minLng - lngPadding),
+      LatLng(maxLat + latPadding, maxLng + lngPadding),
     );
   }
 }

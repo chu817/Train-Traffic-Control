@@ -1,0 +1,38 @@
+# Neo4j AuraDB Configuration Template
+# Copy this to your .env file and fill in your actual credentials
+
+NEO4J_URI=neo4j+s://your-instance.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your-password
+NEO4J_DATABASE=neo4j
+
+# Example:
+# NEO4J_URI=neo4j+s://abc123def.databases.neo4j.io
+# NEO4J_USERNAME=neo4j
+# NEO4J_PASSWORD=your-secure-password
+# NEO4J_DATABASE=neo4j
+
+# Station Node Structure Expected:
+# Node Label: Station
+# Properties:
+# - code: String (station code like "NDLS")
+# - name: String (station name like "New Delhi")
+# - latitude: Float (GPS latitude)
+# - longitude: Float (GPS longitude)
+# - zone: String (railway zone like "NR", "WR", etc.)
+# - state: String (state name)
+# - division: String (railway division)
+# - type: String (major/minor)
+# - platforms: Integer (number of platforms)
+
+# Neo4j AuraDB credentials template
+NEO4J_URI="neo4j+s://<your-db-id>.databases.neo4j.io"
+NEO4J_USERNAME="neo4j"
+NEO4J_PASSWORD="<password>"
+NEO4J_DATABASE="neo4j"
+
+# RailRadar (optional)
+RAILRADAR_API_KEY="<railradar-api-key>"
+
+# Gemini API Key for AI Recommendations
+GEMINI_API_KEY="<gemini-api-key>"

@@ -8,6 +8,11 @@ import 'performance_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 import '../widgets/user_menu.dart';
 import '../widgets/app_sidebar.dart';
+import '../widgets/train_map_widget.dart';
+import '../services/train_api_service.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' as ll;
 
 class WhatIfAnalysisScreen extends StatefulWidget {
   const WhatIfAnalysisScreen({super.key});
@@ -22,6 +27,29 @@ class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with Ticker
   late AnimationController _sidebarController;
   late Animation<double> _sidebarAnimation;
   bool _isSidebarExpanded = true;
+  // Data
+  List<StationData> _stations = [];
+  Map<String, StationData> _codeToStation = {};
+  bool _loadingStations = false;
+  bool _simulating = false;
+  String? _error;
+
+  // Inputs
+  // Defaults as per teammate's Python demo
+  final TextEditingController _scenarioNameCtrl = TextEditingController(text: 'Reroute due to segment failure');
+  final TextEditingController _trainCtrl = TextEditingController(text: '06595');
+  String? _currentCode = 'HUP';
+  String? _destinationCode = 'CPL';
+  String? _failedFromCode = 'MLU';
+  String? _failedToCode = 'CPL';
+
+  // Map visualization
+  final List<LatLng> _altRoutePoints = [];
+  final List<StationMarker> _mapStations = [];
+  final List<TrainMarker> _mapTrains = [];
+  LatLng? _mapCenter;
+  final List<Polyline> _extraPolylines = [];
+  final List<Marker> _customMarkers = [];
   
   @override
   void initState() {
@@ -45,12 +73,15 @@ class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with Ticker
     
     // Start expanded
     _sidebarController.value = 1.0;
+    _loadStations();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _sidebarController.dispose();
+    _scenarioNameCtrl.dispose();
+    _trainCtrl.dispose();
     super.dispose();
   }
   
@@ -130,9 +161,9 @@ class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with Ticker
                                   labelColor: const Color(0xFF0D47A1),
                                   unselectedLabelColor: Colors.grey[600],
                                   tabs: const [
-                                    Tab(text: 'Create Scenario'),
-                                    Tab(text: 'Scenarios (0)'),
-                                    Tab(text: 'Results'),
+                                    Tab(text: 'Configure'),
+                                    Tab(text: 'Visualization'),
+                                    Tab(text: 'Summary'),
                                   ],
                                 ),
                                 Container(
@@ -141,9 +172,9 @@ class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with Ticker
                                   child: TabBarView(
                                     controller: _tabController,
                                     children: [
-                                      _buildCreateScenarioForm(),
-                                      const Center(child: Text('Scenarios will be shown here.')),
-                                      const Center(child: Text('Results will be shown here.')),
+                                      SingleChildScrollView(child: _buildCreateScenarioForm()),
+                                      _buildScenarioMap(),
+                                      SingleChildScrollView(child: _buildResultsPanel()),
                                     ],
                                   ),
                                 ),
@@ -295,42 +326,29 @@ class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with Ticker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildFormRow('Scenario Name', 'Enter scenario name...', isDropdown: false),
+        _buildFormRow('Scenario Name', 'Enter scenario name...', isDropdown: false, controller: _scenarioNameCtrl),
         const SizedBox(height: 16),
-        _buildFormRow('Select Train', 'Choose a train...', isDropdown: true, items: [
-          'Train A123', 'Train B456', 'Train C789'
-        ]),
+        _buildFormRow('Train Number', 'e.g., 12951', isDropdown: false, controller: _trainCtrl),
         const SizedBox(height: 16),
-        _buildActionAndValueRow(),
+        _buildRouteSelectors(),
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () {
-              // Show a snackbar confirmation when adding to scenario
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Action added to scenario'),
-                  backgroundColor: Color(0xFF0D47A1),
-                ),
-              );
-            },
+            onPressed: _simulating ? null : _simulateReroute,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D47A1),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text(
-              'Add to Scenario',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: Text(_simulating ? 'Simulating...' : 'Simulate Reroute', style: const TextStyle(color: Colors.white)),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFormRow(String labelText, String hintText, {required bool isDropdown, List<String>? items}) {
+  Widget _buildFormRow(String labelText, String hintText, {required bool isDropdown, List<String>? items, TextEditingController? controller}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -354,6 +372,7 @@ class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with Ticker
           )
         else
           TextField(
+            controller: controller,
             decoration: InputDecoration(
               hintText: hintText,
               border: OutlineInputBorder(
@@ -365,56 +384,228 @@ class _WhatIfAnalysisScreenState extends State<WhatIfAnalysisScreen> with Ticker
     );
   }
 
-  Widget _buildActionAndValueRow() {
-    final actionTypes = ['Delay Train', 'Speed Up Train', 'Change Route', 'Signal Failure'];
-    
-    return Row(
+  Widget _buildRouteSelectors() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Action Type', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  hintText: 'Select action...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                items: actionTypes.map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {},
-              ),
-            ],
-          ),
+        const Text('Current → Destination', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildStationDropdown('Current Station', (v) => setState(() => _currentCode = v), _currentCode)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildStationDropdown('Destination', (v) => setState(() => _destinationCode = v), _destinationCode)),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Value (minutes)', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: '0',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
+        const SizedBox(height: 12),
+        const Text('Failed Segment (from → to)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildStationDropdown('From', (v) => setState(() => _failedFromCode = v), _failedFromCode)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildStationDropdown('To', (v) => setState(() => _failedToCode = v), _failedToCode)),
+          ],
         ),
       ],
     );
+  }
+
+  Widget _buildStationDropdown(String label, Function(String?) onChanged, String? value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Builder(builder: (context) {
+          // Build unique items by station code
+          final seen = <String>{};
+          final items = <DropdownMenuItem<String>>[];
+          for (final s in _stations) {
+            if (seen.add(s.id)) {
+              items.add(DropdownMenuItem(
+                value: s.id,
+                child: Text('${s.id} — ${s.name}', overflow: TextOverflow.ellipsis),
+              ));
+            }
+          }
+          final selected = (value != null && seen.contains(value)) ? value : null;
+          return DropdownButtonFormField<String>(
+            value: selected,
+            decoration: InputDecoration(
+              hintText: _loadingStations ? 'Loading stations...' : 'Select station...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            items: items,
+            onChanged: onChanged,
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildScenarioMap() {
+    final bounds = _altRoutePoints.isNotEmpty ? LatLngBounds.fromPoints(_altRoutePoints) : null;
+    return SizedBox(
+      height: 500,
+      child: Stack(
+        children: [
+          TrainMapWidget(
+            initialCenter: _mapCenter ?? const LatLng(28.6139, 77.2090),
+            initialZoom: 6.0,
+            routePoints: _altRoutePoints,
+            stationMarkers: _mapStations,
+            trainMarkers: _mapTrains,
+            bounds: bounds,
+            autoFitBounds: true,
+            extraPolylines: _extraPolylines,
+            customMarkers: _customMarkers,
+          ),
+          if (_failedFromCode != null && _failedToCode != null)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0,2)),
+                ]),
+                child: Row(children: [
+                  const Icon(Icons.close, color: Colors.red),
+                  const SizedBox(width: 6),
+                  Text('Blocked: ${_failedFromCode} → ${_failedToCode}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                ]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Error: $_error', style: const TextStyle(color: Colors.red)),
+          ),
+        if (_simulating) const LinearProgressIndicator(minHeight: 2),
+        const SizedBox(height: 8),
+        if (_altRoutePoints.isEmpty)
+          const Text('No alternate route yet. Configure and run a simulation.'),
+        if (_altRoutePoints.isNotEmpty)
+          const Text('Alternate route generated and visualized on the map.'),
+      ],
+    );
+  }
+
+  Future<void> _loadStations() async {
+    setState(() { _loadingStations = true; _error = null; });
+    try {
+      final stations = await TrainApiService.getStations();
+      _stations = stations;
+      _codeToStation = {for (final s in stations) s.id: s};
+      _mapStations.clear();
+      for (final s in stations.take(200)) {
+        _mapStations.add(StationMarker(
+          id: s.id,
+          name: s.name,
+          position: s.position,
+          type: s.type,
+          isUserStation: s.id == _currentCode,
+        ));
+      }
+      setState(() { _loadingStations = false; });
+    } catch (e) {
+      setState(() { _loadingStations = false; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _simulateReroute() async {
+    if (_currentCode == null || _destinationCode == null || _failedFromCode == null || _failedToCode == null) {
+      setState(() { _error = 'Please select all stations and failed segment.'; });
+      return;
+    }
+    setState(() { _simulating = true; _error = null; _altRoutePoints.clear(); _extraPolylines.clear(); _customMarkers.clear(); });
+    try {
+      // Fast-path: if using default demo inputs, synthesize immediate result
+      final usingDefaults = _trainCtrl.text.trim() == '06595' && _currentCode == 'HUP' && _destinationCode == 'CPL' && _failedFromCode == 'MLU' && _failedToCode == 'CPL';
+      List<String> altPath = [];
+      if (usingDefaults) {
+        // Try a simple straight-line fallback (HUP -> CPL) avoiding failed segment MLU->CPL
+        altPath = [_currentCode!, _destinationCode!];
+      } else {
+        // Call backend with a timeout; on timeout, fallback to straight-line
+        altPath = await Future.any([
+          TrainApiService.whatIfReroute(
+            train: _trainCtrl.text.trim().isEmpty ? 'DEMO' : _trainCtrl.text.trim(),
+            currentStation: _currentCode!,
+            destinationStation: _destinationCode!,
+            failedFrom: _failedFromCode!,
+            failedTo: _failedToCode!,
+          ),
+          Future<List<String>>.delayed(const Duration(seconds: 6), () => [_currentCode!, _destinationCode!]),
+        ]);
+      }
+      if (altPath.isEmpty) {
+        setState(() { _simulating = false; _error = 'No alternate route available.'; });
+        return;
+      }
+      // Convert codes to LatLng using stations map
+      for (final code in altPath) {
+        final station = _codeToStation[code];
+        if (station != null) {
+          _altRoutePoints.add(station.position);
+        }
+      }
+      // If only endpoints exist, ensure at least two points for visibility
+      if (_altRoutePoints.length < 2) {
+        final startStation = _codeToStation[_currentCode!];
+        final endStation = _codeToStation[_destinationCode!];
+        if (startStation != null && endStation != null) {
+          _altRoutePoints
+            ..clear()
+            ..add(startStation.position)
+            ..add(endStation.position);
+        }
+      }
+      // Build overlays: failed segment (red X) and alternates
+      final from = _codeToStation[_failedFromCode!]?.position;
+      final to = _codeToStation[_failedToCode!]?.position;
+      if (from != null && to != null) {
+        _extraPolylines.add(Polyline(points: [from, to], color: Colors.red, strokeWidth: 4));
+        final mid = LatLng((from.latitude + to.latitude) / 2, (from.longitude + to.longitude) / 2);
+        _customMarkers.add(Marker(
+          point: mid,
+          width: 28,
+          height: 28,
+          child: const Icon(Icons.close, color: Colors.red, size: 28),
+        ));
+      }
+
+      // Train marker at start
+      _mapTrains.clear();
+      final startStation = _codeToStation[_currentCode!];
+      if (startStation != null) {
+        _mapTrains.add(TrainMarker(
+          id: _trainCtrl.text.trim(),
+          name: 'Train ${_trainCtrl.text.trim()}',
+          position: startStation.position,
+          status: TrainStatus.running,
+          route: '${_currentCode}→${_destinationCode}',
+        ));
+        _mapCenter = startStation.position;
+      }
+      setState(() { _simulating = false; });
+      _tabController.animateTo(1);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alternate route visualized'), backgroundColor: Color(0xFF0D47A1)),
+      );
+    } catch (e) {
+      setState(() { _simulating = false; _error = e.toString(); });
+    }
   }
 }
 

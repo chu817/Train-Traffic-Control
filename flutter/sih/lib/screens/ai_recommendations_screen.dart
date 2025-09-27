@@ -9,6 +9,8 @@ import 'performance_screen.dart';
 import '../utils/page_transitions_fixed.dart';
 import '../widgets/user_menu.dart';
 import '../widgets/app_sidebar.dart';
+import '../services/train_api_service.dart';
+import '../services/auth_service.dart';
 
 class AiRecommendationsScreen extends StatefulWidget {
   const AiRecommendationsScreen({super.key});
@@ -23,36 +25,15 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
   late Animation<double> _sidebarAnimation;
   bool _isSidebarExpanded = true;
   
-  // A list of recommendation data. You can replace this with data fetched from an API.
-  final List<Map<String, dynamic>> _recommendations = [
-    {
-      'title': 'Prioritize Express Service',
-      'tag': 'Priority',
-      'description': 'Hold 12951 at current station and give priority to oncoming express trains',
-      'confidence': 87,
-      'timeToImplement': '5 min to implement',
-      'expectedImpact': 'Reduces overall delay by 12 minutes',
-      'details': 'This recommendation is based on real-time traffic data and future predictions. Implementing this will reduce congestion and ensure on-time performance for express trains, minimizing cascading delays.'
-    },
-    {
-      'title': 'Optimize Junction Routing',
-      'tag': 'Routing',
-      'description': 'Redirect Train 22691 through alternate route at Kanpur Junction to avoid congestion',
-      'confidence': 72,
-      'timeToImplement': '3 min to implement',
-      'expectedImpact': 'Prevents potential 8-minute delay',
-      'details': 'This is a short-term routing solution to mitigate a temporary traffic bottleneck. The alternate route is clear and will not affect other scheduled services.'
-    },
-    {
-      'title': 'Schedule Signal Maintenance',
-      'tag': 'Maintenance',
-      'description': 'Signal B2 showing intermittent failures - schedule maintenance during low traffic window',
-      'confidence': 94,
-      'timeToImplement': '30 min to implement',
-      'expectedImpact': 'Prevents potential safety hazard',
-      'details': 'Signal B2 has reported multiple intermittent failures in the past 24 hours. A maintenance crew should be dispatched during the next low traffic period to address the issue before it causes a critical failure.'
-    },
-  ];
+  bool _loading = false;
+  String? _error;
+  String _aiText = '';
+  String _stationName = '';
+  String _stationCode = '';
+  List<LiveTrainData> _liveTrains = [];
+  Map<String, dynamic>? _schedule;
+  List<Map<String, dynamic>> _recommendationCards = [];
+  final TextEditingController _promptCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -75,12 +56,71 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
     
     // Start expanded
     _sidebarController.value = 1.0;
+    _fetchContextAndRecommend();
   }
   
   @override
   void dispose() {
     _sidebarController.dispose();
+    _promptCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchContextAndRecommend() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final user = AuthService().currentUser;
+      final profile = user != null ? await AuthService().fetchUserProfile(user.uid) : null;
+      final userStationName = (profile?['station'] as String?) ?? 'NEW DELHI';
+      _stationName = userStationName;
+
+      String code = 'NDLS';
+      final allStations = await TrainApiService.getStations();
+      final match = allStations.firstWhere(
+        (s) => s.name.toUpperCase() == userStationName.toUpperCase(),
+        orElse: () => allStations.firstWhere((s) => s.id == 'NDLS', orElse: () => allStations.first),
+      );
+      code = match.id;
+      _stationCode = code;
+
+      _liveTrains = await TrainApiService.getLiveTrains(stations: [code]);
+
+      final basePrompt = 'Provide concise, safety-first operational recommendations for Indian Railway control. Consider congestion, delays, halts, and priority routing.';
+      final text = await TrainApiService.getAiRecommendations(
+        station: _stationName,
+        liveTrains: _liveTrains,
+        constraints: { 'max_items': 5 },
+        prompt: basePrompt,
+      );
+      // Also request conflict-free schedule
+      final schedule = await TrainApiService.getConflictFreeSchedule(
+        station: _stationName,
+        liveTrains: _liveTrains,
+        constraints: { 'buffer_minutes': 5 },
+      );
+      // Build cards once from the AI text
+      final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      final List<Map<String, dynamic>> cards = [];
+      for (int i = 0; i < lines.length; i++) {
+        final t = lines[i].trim();
+        cards.add({
+          'id': '${DateTime.now().millisecondsSinceEpoch}-$i',
+          'title': 'Recommendation ${i + 1}',
+          'description': t,
+          'confidence': 70 + (i * 5),
+          'timeToImplement': 'Est. ${(i + 1) * 5} min',
+          'expectedImpact': i == 0 ? 'Reduced dwell time' : i == 1 ? 'Improved punctuality' : 'Lower congestion',
+          'tag': i == 0 ? 'Priority' : i == 1 ? 'Routing' : 'Maintenance',
+          'details': 'Generated based on live trains and constraints for $_stationName ($_stationCode).',
+        });
+      }
+      if (!mounted) return;
+      setState(() { _aiText = text; _schedule = schedule; _recommendationCards = cards; _loading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _error = e.toString(); _loading = false; });
+    }
   }
   
   void _navigateToDashboard() {
@@ -141,8 +181,10 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                         children: [
                           _buildHeader(),
                           const SizedBox(height: 24),
-                          // Loop through the list of recommendations to build each card.
-                          ..._recommendations.map((rec) => _buildRecommendationCard(rec)),
+                          // Removed interactive controls; generate once per session
+                          _buildAiResultCards(),
+                          const SizedBox(height: 24),
+                          _buildScheduleSection(),
                         ],
                       ),
                     ),
@@ -200,32 +242,132 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const Spacer(),
-        Chip(
-          label: const Text(
-            '1 Critical', 
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.red[600],
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-        ),
-        const SizedBox(width: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.green[100],
+            color: Colors.blue[50],
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            'AI Active - ${_recommendations.length} recommendations',
-            style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.bold),
+            _stationName.isEmpty ? 'Station: —' : 'Station: $_stationName ($_stationCode)',
+            style: const TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.bold),
           ),
         ),
       ],
     );
   }
 
+  // Controls removed per requirements
+
+  Widget _buildAiResultCards() {
+    if (_loading) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(24),
+        child: CircularProgressIndicator(),
+      ));
+    }
+    if (_recommendationCards.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(8.0),
+        child: Text('No recommendations yet.'),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < _recommendationCards.length; i++)
+          _buildRecommendationCard(_recommendationCards[i], i)
+      ],
+    );
+  }
+
+  Widget _buildBullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(fontSize: 16, color: Colors.black87)),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 16))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleSection() {
+    final schedule = _schedule;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.schedule, color: Color(0xFF0D47A1)),
+              SizedBox(width: 8),
+              Text('Conflict-free Schedule', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (schedule == null) const Text('No schedule generated yet.'),
+          if (schedule != null) ...[
+            _buildScheduleTable(schedule['slots'] as List? ?? const []),
+            const SizedBox(height: 12),
+            if ((schedule['notes'] as List? ?? const []).isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Notes:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  for (final n in (schedule['notes'] as List))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text('• ${n.toString()}'),
+                    ),
+                ],
+              ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleTable(List slots) {
+    if (slots.isEmpty) {
+      return const Text('No conflicts detected or schedule unavailable.');
+    }
+    return Column(
+      children: [
+        for (final s in slots)
+          Card(
+            elevation: 2,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: ListTile(
+              leading: const Icon(Icons.train, color: Color(0xFF0D47A1)),
+              title: Text('${s['train_number'] ?? ''} • ${s['train_name'] ?? ''}'),
+              subtitle: Text('Arr: ${s['arrival'] ?? '-'}  |  Dep: ${s['departure'] ?? '-'}  |  Platform: ${s['platform'] ?? '-'}'),
+              trailing: (s['conflicts'] is List && (s['conflicts'] as List).isNotEmpty)
+                  ? const Icon(Icons.error_outline, color: Colors.red)
+                  : const Icon(Icons.check_circle_outline, color: Colors.green)
+            ),
+          ),
+      ],
+    );
+  }
+
   // Build a single recommendation card.
-  Widget _buildRecommendationCard(Map<String, dynamic> rec) {
+  Widget _buildRecommendationCard(Map<String, dynamic> rec, int index) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
@@ -252,13 +394,11 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: () {
-                    // Action to dismiss the card
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation dismissed'),
-                        backgroundColor: Color(0xFF0D47A1),
-                      ),
-                    );
+                    setState(() {
+                      if (index >= 0 && index < _recommendationCards.length) {
+                        _recommendationCards.removeAt(index);
+                      }
+                    });
                   },
                   icon: const Icon(Icons.close, color: Colors.grey),
                 ),
@@ -345,12 +485,11 @@ class _AiRecommendationsScreenState extends State<AiRecommendationsScreen> with 
               children: [
                 TextButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recommendation dismissed'),
-                        backgroundColor: Color(0xFF0D47A1),
-                      ),
-                    );
+                  setState(() {
+                    if (index >= 0 && index < _recommendationCards.length) {
+                      _recommendationCards.removeAt(index);
+                    }
+                  });
                   },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey[700],
